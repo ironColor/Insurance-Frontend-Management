@@ -88,6 +88,12 @@ export const constantRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/product/insuranceCompany/index.vue'),
         name: 'InsuranceCompany',
         meta: { title: '合作保险公司', icon: 'company' }
+      },
+      {
+        path: 'banner',
+        component: () => import('@/views/product/banner/index.vue'),
+        name: 'BannerManagement',
+        meta: { title: 'Banner 图管理', icon: 'upload' }
       }
     ]
   },

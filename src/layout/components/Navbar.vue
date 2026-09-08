@@ -34,7 +34,7 @@
         </el-tooltip>
         <!-- 消息 -->
         <el-tooltip :content="proxy.$t('navbar.message')" effect="dark" placement="bottom">
-          <div style="display:flex;align-items:center">
+          <div style="display: flex; align-items: center">
             <el-popover placement="bottom" trigger="click" transition="el-zoom-in-top" :width="300" :persistent="false">
               <template #reference>
                 <el-badge :value="newNotice > 0 ? newNotice : ''" :max="99">
@@ -47,21 +47,21 @@
             </el-popover>
           </div>
         </el-tooltip>
-<!--        <el-tooltip content="Github" effect="dark" placement="bottom">-->
-<!--          <ruo-yi-git id="ruoyi-git" class="right-menu-item hover-effect" />-->
-<!--        </el-tooltip>-->
+        <!--        <el-tooltip content="Github" effect="dark" placement="bottom">-->
+        <!--          <ruo-yi-git id="ruoyi-git" class="right-menu-item hover-effect" />-->
+        <!--        </el-tooltip>-->
 
-<!--        <el-tooltip :content="proxy.$t('navbar.document')" effect="dark" placement="bottom">-->
-<!--          <ruo-yi-doc id="ruoyi-doc" class="right-menu-item hover-effect" />-->
-<!--        </el-tooltip>-->
+        <!--        <el-tooltip :content="proxy.$t('navbar.document')" effect="dark" placement="bottom">-->
+        <!--          <ruo-yi-doc id="ruoyi-doc" class="right-menu-item hover-effect" />-->
+        <!--        </el-tooltip>-->
 
         <el-tooltip :content="proxy.$t('navbar.full')" effect="dark" placement="bottom">
           <screenfull id="screenfull" class="right-menu-item hover-effect" />
         </el-tooltip>
 
-<!--        <el-tooltip :content="proxy.$t('navbar.language')" effect="dark" placement="bottom">-->
-<!--          <lang-select id="lang-select" class="right-menu-item hover-effect" />-->
-<!--        </el-tooltip>-->
+        <!--        <el-tooltip :content="proxy.$t('navbar.language')" effect="dark" placement="bottom">-->
+        <!--          <lang-select id="lang-select" class="right-menu-item hover-effect" />-->
+        <!--        </el-tooltip>-->
 
         <el-tooltip :content="proxy.$t('navbar.layoutSize')" effect="dark" placement="bottom">
           <size-select id="size-select" class="right-menu-item hover-effect" />
@@ -105,8 +105,8 @@ import notice from './notice/index.vue';
 import router from '@/router';
 import { ElMessageBoxOptions } from 'element-plus/es/components/message-box/src/message-box.type';
 import { NavTypeEnum } from '@/enums/NavTypeEnum';
-import Logo from "@/layout/components/Sidebar/Logo.vue";
-import TopBar from './TopBar'
+import Logo from '@/layout/components/Sidebar/Logo.vue';
+import TopBar from './TopBar';
 
 const appStore = useAppStore();
 const userStore = useUserStore();
@@ -128,6 +128,7 @@ const dynamic = ref(false);
 const tenantEnabled = ref(true);
 // 搜索菜单
 const searchMenuRef = ref<InstanceType<typeof SearchMenu>>();
+const isDevAuthBypassed = import.meta.env.VITE_APP_ENV === 'development' && import.meta.env.VITE_APP_AUTH_BYPASS === 'true';
 
 const openSearchMenu = () => {
   searchMenuRef.value?.openSearch();
@@ -154,6 +155,10 @@ const dynamicClearEvent = async () => {
 
 /** 租户列表 */
 const initTenantList = async () => {
+  if (isDevAuthBypassed) {
+    tenantEnabled.value = false;
+    return;
+  }
   const { data } = await getTenantList(true);
   tenantEnabled.value = data.tenantEnabled === undefined ? true : data.tenantEnabled;
   if (tenantEnabled.value) {
@@ -282,7 +287,6 @@ watch(
     margin-left: 8px;
   }
 
-
   .errLog-container {
     display: inline-block;
     vertical-align: top;
@@ -310,7 +314,9 @@ watch(
 
       &.hover-effect {
         cursor: pointer;
-        transition: background 0.2s ease, color 0.2s ease;
+        transition:
+          background 0.2s ease,
+          color 0.2s ease;
 
         &:hover {
           background: var(--el-fill-color-light);

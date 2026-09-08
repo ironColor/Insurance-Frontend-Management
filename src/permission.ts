@@ -23,9 +23,7 @@ router.beforeEach(async (to, from, next) => {
   if (isDevAuthBypassed) {
     to.meta.title && useSettingsStore().setTitle(to.meta.title as string);
     const permissionStore = usePermissionStore();
-    if (permissionStore.getSidebarRoutes().length === 0) {
-      permissionStore.setSidebarRouters(constantRoutes);
-    }
+    permissionStore.setSidebarRouters(constantRoutes);
     next();
     return;
   }

@@ -37,6 +37,7 @@ const device = computed(() => useAppStore().device);
 const needTagsView = computed(() => settingsStore.tagsView);
 const fixedHeader = computed(() => settingsStore.fixedHeader);
 const layout = computed(() => settingsStore.navType);
+const isDevAuthBypassed = import.meta.env.VITE_APP_ENV === 'development' && import.meta.env.VITE_APP_AUTH_BYPASS === 'true';
 
 // 根据布局模式判断是否显示侧边栏
 const showSidebar = computed(() => {
@@ -76,11 +77,13 @@ onMounted(() => {
 });
 
 onMounted(() => {
+  if (isDevAuthBypassed) return;
   const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
   initWebSocket(protocol + window.location.host + import.meta.env.VITE_APP_BASE_API + '/resource/websocket');
 });
 
 onMounted(() => {
+  if (isDevAuthBypassed) return;
   initSSE(import.meta.env.VITE_APP_BASE_API + '/resource/sse');
 });
 
@@ -127,7 +130,7 @@ const setLayout = () => {
   width: calc(100% - #{$base-sidebar-width});
   transition: width 0.28s;
   background: $fixed-header-bg;
-  box-shadow: 0 2px 8px rgba(0, 21, 41, 0.10);
+  box-shadow: 0 2px 8px rgba(0, 21, 41, 0.1);
 }
 
 .hideSidebar .fixed-header {
