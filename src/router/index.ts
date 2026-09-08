@@ -78,11 +78,24 @@ export const constantRoutes: RouteRecordRaw[] = [
   {
     path: '/product',
     component: Layout,
-    redirect: '/product/insurance-company',
+    redirect: '/product/list',
     alwaysShow: true,
     name: 'ProductManagement',
     meta: { title: '产品管理', icon: 'shopping' },
     children: [
+      {
+        path: 'list',
+        component: () => import('@/views/product/productManagement/index.vue'),
+        name: 'ProductList',
+        meta: { title: '产品管理', icon: 'list' }
+      },
+      {
+        path: 'config/:id?',
+        component: () => import('@/views/product/productManagement/config.vue'),
+        name: 'ProductConfig',
+        hidden: true,
+        meta: { title: '产品配置', activeMenu: '/product/list' }
+      },
       {
         path: 'insurance-company',
         component: () => import('@/views/product/insuranceCompany/index.vue'),
