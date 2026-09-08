@@ -76,6 +76,22 @@ export const constantRoutes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/product',
+    component: Layout,
+    redirect: '/product/insurance-company',
+    alwaysShow: true,
+    name: 'ProductManagement',
+    meta: { title: '产品管理', icon: 'shopping' },
+    children: [
+      {
+        path: 'insurance-company',
+        component: () => import('@/views/product/insuranceCompany/index.vue'),
+        name: 'InsuranceCompany',
+        meta: { title: '合作保险公司', icon: 'company' }
+      }
+    ]
+  },
+  {
     path: '/user',
     component: Layout,
     hidden: true,
@@ -92,9 +108,7 @@ export const constantRoutes: RouteRecordRaw[] = [
 ];
 
 // 动态路由，基于用户权限动态去加载
-export const dynamicRoutes: RouteRecordRaw[] = [
-
-];
+export const dynamicRoutes: RouteRecordRaw[] = [];
 
 /**
  * 创建路由

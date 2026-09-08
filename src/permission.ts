@@ -1,5 +1,5 @@
 import { to as tos } from 'await-to-js';
-import router from './router';
+import router, { constantRoutes } from './router';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import { getToken } from '@/utils/auth';
@@ -12,6 +12,7 @@ import { ElMessage } from 'element-plus/es';
 
 NProgress.configure({ showSpinner: false });
 const whiteList = ['/login', '/register', '/social-callback', '/register*', '/register/*'];
+const isDevAuthBypassed = import.meta.env.VITE_APP_ENV === 'development' && import.meta.env.VITE_APP_AUTH_BYPASS === 'true';
 
 const isWhiteList = (path: string) => {
   return whiteList.some((pattern) => isPathMatch(pattern, path));
@@ -19,6 +20,15 @@ const isWhiteList = (path: string) => {
 
 router.beforeEach(async (to, from, next) => {
   NProgress.start();
+  if (isDevAuthBypassed) {
+    to.meta.title && useSettingsStore().setTitle(to.meta.title as string);
+    const permissionStore = usePermissionStore();
+    if (permissionStore.getSidebarRoutes().length === 0) {
+      permissionStore.setSidebarRouters(constantRoutes);
+    }
+    next();
+    return;
+  }
   if (getToken()) {
     to.meta.title && useSettingsStore().setTitle(to.meta.title as string);
     /* has token*/

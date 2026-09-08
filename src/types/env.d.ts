@@ -14,6 +14,7 @@ interface ImportMetaEnv {
   VITE_APP_MONITOR_ADMIN: string;
   VITE_APP_SNAILJOB_ADMIN: string;
   VITE_APP_ENV: string;
+  VITE_APP_AUTH_BYPASS: string;
   VITE_APP_ENCRYPT: string;
   VITE_APP_RSA_PUBLIC_KEY: string;
   VITE_APP_RSA_PRIVATE_KEY: string;
