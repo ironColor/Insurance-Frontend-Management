@@ -111,6 +111,19 @@ export const constantRoutes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/order',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'list',
+        component: () => import('@/views/order/index.vue'),
+        name: 'OrderList',
+        meta: { title: '订单列表', activeMenu: '/product/list' }
+      }
+    ]
+  },
+  {
     path: '/user',
     component: Layout,
     hidden: true,

@@ -29,7 +29,6 @@
       <pagination v-show="total > 0" v-model:page="query.pageNum" v-model:limit="query.pageSize" :total="total" @pagination="load" />
     </el-card>
     <el-dialog v-model="qrVisible" title="产品二维码" width="380px"><div class="qr-box"><div class="fake-qr">{{ qrProduct?.productCode }}</div><h3>{{ qrProduct?.productName }}</h3><p>微信扫码进入产品投保页</p></div></el-dialog>
-    <el-dialog v-model="ordersVisible" title="订单详情" width="760px"><el-descriptions :column="3" border><el-descriptions-item label="产品">{{ orderProduct?.productName }}</el-descriptions-item><el-descriptions-item label="支付订单">{{ orderProduct?.orderCount }}</el-descriptions-item><el-descriptions-item label="实收保费">¥{{ orderProduct?.premium.toLocaleString() }}</el-descriptions-item></el-descriptions><el-empty description="演示数据：请接入订单接口获取订单明细" /></el-dialog>
   </div>
 </template>
 <script setup name="ProductList" lang="ts">
@@ -39,13 +38,13 @@ const router = useRouter(); const { proxy } = getCurrentInstance() as ComponentI
 const units = ['贵州本部', '重庆本部', '保定本部', '保险财险事业部', '山西', '济南', '四川本部'];
 const loading = ref(false); const list = ref<ProductVO[]>([]); const total = ref(0);
 const query = reactive<ProductQuery>({ pageNum: 1, pageSize: 10, productCode: '', productName: '', businessUnit: '', status: '0' });
-const qrVisible = ref(false); const ordersVisible = ref(false); const qrProduct = ref<ProductVO>(); const orderProduct = ref<ProductVO>();
+const qrVisible = ref(false); const qrProduct = ref<ProductVO>();
 const load = async () => { loading.value = true; try { const res = await listProducts(query); list.value = res.rows; total.value = res.total; } finally { loading.value = false; } };
 const search = () => { query.pageNum = 1; load(); };
 const setStatus = (status: '0' | '1') => { if (query.status === status) return; query.status = status; search(); };
 const toggle = async (row: ProductVO) => { await changeProductStatus(row.productId, row.status === '0' ? '1' : '0'); proxy?.$modal.msgSuccess(`已${row.status === '0' ? '禁用' : '启用'}`); load(); };
 const duplicate = (row: ProductVO) => router.push({ path: '/product/config', query: { copy: String(row.productId) } });
-const showQr = (row: ProductVO) => { qrProduct.value = row; qrVisible.value = true; }; const showOrders = (row: ProductVO, _type: string) => { orderProduct.value = row; ordersVisible.value = true; };
+const showQr = (row: ProductVO) => { qrProduct.value = row; qrVisible.value = true; }; const showOrders = (_row: ProductVO, type: string) => router.push({ path: '/order/list', query: { ...(type === 'premium' ? { payStatus: 'paid' } : {}) } });
 onMounted(load);
 </script>
 <style scoped lang="scss">
