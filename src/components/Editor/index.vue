@@ -13,6 +13,20 @@
     >
       <i ref="uploadRef"></i>
     </el-upload>
+    <el-upload
+      v-if="type === 'url' && videoUpload"
+      :action="upload.url"
+      :before-upload="handleBeforeVideoUpload"
+      :on-success="handleVideoUploadSuccess"
+      :on-error="handleUploadError"
+      accept="video/mp4,video/quicktime,video/webm,video/ogg,video/x-msvideo"
+      class="editor-video-uploader"
+      name="file"
+      :show-file-list="false"
+      :headers="upload.headers"
+    >
+      <i ref="videoUploadRef"></i>
+    </el-upload>
   </div>
   <div class="editor">
     <quill-editor
@@ -33,6 +47,27 @@ import { QuillEditor, Quill } from '@vueup/vue-quill';
 import { propTypes } from '@/utils/propTypes';
 import { globalHeaders } from '@/utils/request';
 
+const QuillRuntime = Quill as any;
+if (!QuillRuntime.imports['formats/uploadedVideo']) {
+  const BlockEmbed = QuillRuntime.import('blots/block/embed');
+  class UploadedVideoBlot extends BlockEmbed {
+    static create(url: string) {
+      const node = super.create();
+      node.setAttribute('src', url);
+      node.setAttribute('controls', 'controls');
+      node.setAttribute('preload', 'metadata');
+      return node;
+    }
+
+    static value(node: HTMLVideoElement) {
+      return node.getAttribute('src');
+    }
+  }
+  UploadedVideoBlot.blotName = 'uploadedVideo';
+  UploadedVideoBlot.tagName = 'video';
+  QuillRuntime.register(UploadedVideoBlot);
+}
+
 defineEmits(['update:modelValue']);
 
 const props = defineProps({
@@ -47,7 +82,11 @@ const props = defineProps({
   /* 上传文件大小限制(MB) */
   fileSize: propTypes.number.def(5),
   /* 类型（base64格式、url格式） */
-  type: propTypes.string.def('url')
+  type: propTypes.string.def('url'),
+  /* 是否将视频按钮改为本地文件上传 */
+  videoUpload: propTypes.bool.def(false),
+  /* 上传视频大小限制(MB) */
+  videoFileSize: propTypes.number.def(100)
 });
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
@@ -58,6 +97,23 @@ const upload = reactive<UploadOption>({
 });
 const quillEditorRef = ref();
 const uploadRef = ref<HTMLDivElement>();
+const videoUploadRef = ref<HTMLDivElement>();
+
+const toolbarHandlers: Record<string, (value: boolean) => void> = {
+  image: (value: boolean) => {
+    if (value) {
+      uploadRef.value?.click();
+    } else {
+      Quill.format('image', true);
+    }
+  }
+};
+
+if (props.videoUpload) {
+  toolbarHandlers.video = (value: boolean) => {
+    if (value) videoUploadRef.value?.click();
+  };
+}
 
 const options = ref<any>({
   theme: 'snow',
@@ -78,16 +134,7 @@ const options = ref<any>({
         ['clean'], // 清除文本格式
         ['link', 'image', 'video'] // 链接、图片、视频
       ],
-      handlers: {
-        image: (value: boolean) => {
-          if (value) {
-            // 调用element图片上传
-            uploadRef.value.click();
-          } else {
-            Quill.format('image', true);
-          }
-        }
-      }
+      handlers: toolbarHandlers
     }
   },
   placeholder: '请输入内容',
@@ -116,21 +163,32 @@ watch(
   { immediate: true }
 );
 
+const insertEmbed = (type: 'image' | 'uploadedVideo', url: string) => {
+  const quill = toRaw(quillEditorRef.value).getQuill();
+  const range = quill.getSelection(true);
+  const index = range?.index ?? Math.max(0, quill.getLength() - 1);
+  quill.insertEmbed(index, type, url);
+  quill.setSelection(index + 1);
+};
+
 // 图片上传成功返回图片地址
 const handleUploadSuccess = (res: any) => {
   // 如果上传成功
   if (res.code === 200) {
-    // 获取富文本实例
-    const quill = toRaw(quillEditorRef.value).getQuill();
-    // 获取光标位置
-    const length = quill.selection.savedRange.index;
-    // 插入图片，res为服务器返回的图片链接地址
-    quill.insertEmbed(length, 'image', res.data.url);
-    // 调整光标到最后
-    quill.setSelection(length + 1);
+    insertEmbed('image', res.data.url);
     proxy?.$modal.closeLoading();
   } else {
     proxy?.$modal.msgError('图片插入失败');
+    proxy?.$modal.closeLoading();
+  }
+};
+
+const handleVideoUploadSuccess = (res: any) => {
+  if (res.code === 200) {
+    insertEmbed('uploadedVideo', res.data.url);
+    proxy?.$modal.closeLoading();
+  } else {
+    proxy?.$modal.msgError('视频插入失败');
     proxy?.$modal.closeLoading();
   }
 };
@@ -156,9 +214,25 @@ const handleBeforeUpload = (file: any) => {
   return true;
 };
 
+const handleBeforeVideoUpload = (file: File) => {
+  const supportedTypes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/ogg', 'video/x-msvideo'];
+  const supportedExtension = /\.(mp4|mov|webm|ogv|avi)$/i.test(file.name);
+  if (!supportedTypes.includes(file.type) && !supportedExtension) {
+    proxy?.$modal.msgError('视频格式错误，仅支持 MP4、MOV、WebM、OGV、AVI');
+    return false;
+  }
+  if (props.videoFileSize && file.size / 1024 / 1024 > props.videoFileSize) {
+    proxy?.$modal.msgError(`上传视频大小不能超过 ${props.videoFileSize} MB!`);
+    return false;
+  }
+  proxy?.$modal.loading('正在上传视频，请稍候...');
+  return true;
+};
+
 // 图片失败拦截
 const handleUploadError = (err: any) => {
   proxy?.$modal.msgError('上传文件失败');
+  proxy?.$modal.closeLoading();
 };
 </script>
 
@@ -166,10 +240,18 @@ const handleUploadError = (err: any) => {
 .editor-img-uploader {
   display: none;
 }
+.editor-video-uploader {
+  display: none;
+}
 .editor,
 .ql-toolbar {
   white-space: pre-wrap !important;
   line-height: normal !important;
+}
+.ql-editor video {
+  display: block;
+  max-width: 100%;
+  margin: 12px 0;
 }
 .quill-img {
   display: none;

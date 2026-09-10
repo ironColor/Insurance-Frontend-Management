@@ -19,19 +19,42 @@ export interface ProductQuery {
   status: '0' | '1';
 }
 
-export interface ProtectionItem { name: string; amount: string }
-export interface ProductPlan { name: string; premium: number; company: string; type: string; required: boolean; description: string; protections: ProtectionItem[] }
-export interface InsuredField { name: string; type: string; placeholder: string; required: boolean }
-export interface FieldGroup { name: string; fields: InsuredField[] }
+export interface ProtectionItem {
+  name: string;
+  amount: string;
+}
+export interface ProductPlan {
+  name: string;
+  premium: number;
+  description: string;
+  protections: ProtectionItem[];
+}
+export interface ProductItem {
+  name: string;
+  type: string;
+  companyId?: number;
+  required: boolean;
+  plans: ProductPlan[];
+}
+export interface InsuredField {
+  name: string;
+  type: string;
+  placeholder: string;
+  required: boolean;
+}
+export interface FieldGroup {
+  name: string;
+  fields: InsuredField[];
+}
 
 export interface ProductConfig {
   productId?: number;
+  hasOrders: boolean;
   name: string;
   code: string;
   businessUnit: string;
   subtitle: string;
-  products: string[];
-  plans: ProductPlan[];
+  products: ProductItem[];
   introduction: string;
   fieldGroups: FieldGroup[];
   forceRead: { title: string; content: string; seconds: number; enabled: boolean }[];
