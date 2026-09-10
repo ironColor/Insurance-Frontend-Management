@@ -12,13 +12,12 @@ import { createCustomNameComponent } from '@/utils/createCustomNameComponent';
 
 // 匹配views里面所有的.vue文件
 const modules = import.meta.glob('./../../views/**/*.vue');
-const isDevAuthBypassed = import.meta.env.VITE_APP_ENV === 'development' && import.meta.env.VITE_APP_AUTH_BYPASS === 'true';
 export const usePermissionStore = defineStore('permission', () => {
   const routes = ref<RouteRecordRaw[]>([]);
   const addRoutes = ref<RouteRecordRaw[]>([]);
   const defaultRoutes = ref<RouteRecordRaw[]>([]);
   const topbarRouters = ref<RouteRecordRaw[]>([]);
-  const sidebarRouters = ref<RouteRecordRaw[]>(isDevAuthBypassed ? constantRoutes : []);
+  const sidebarRouters = ref<RouteRecordRaw[]>([]);
 
   const getRoutes = (): RouteRecordRaw[] => {
     return routes.value as RouteRecordRaw[];

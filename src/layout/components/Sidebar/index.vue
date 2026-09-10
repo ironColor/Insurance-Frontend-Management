@@ -36,29 +36,7 @@ const route = useRoute();
 const appStore = useAppStore();
 const settingsStore = useSettingsStore();
 const permissionStore = usePermissionStore();
-const isDevAuthBypassed = import.meta.env.VITE_APP_ENV === 'development' && import.meta.env.VITE_APP_AUTH_BYPASS === 'true';
-const developmentSidebarRoutes: RouteRecordRaw[] = [
-  {
-    path: '/index',
-    meta: { title: '首页', icon: 'dashboard' }
-  },
-  {
-    path: '/product',
-    alwaysShow: true,
-    meta: { title: '产品管理', icon: 'shopping' },
-    children: [
-      {
-        path: 'insurance-company',
-        meta: { title: '合作保险公司', icon: 'company' }
-      },
-      {
-        path: 'banner',
-        meta: { title: 'Banner 图管理', icon: 'upload' }
-      }
-    ]
-  }
-];
-const sidebarRouters = computed<RouteRecordRaw[]>(() => (isDevAuthBypassed ? developmentSidebarRoutes : permissionStore.getSidebarRoutes()));
+const sidebarRouters = computed<RouteRecordRaw[]>(() => permissionStore.getSidebarRoutes());
 const showLogo = computed(() => settingsStore.sidebarLogo);
 const sideTheme = computed(() => settingsStore.sideTheme);
 const theme = computed(() => settingsStore.theme);

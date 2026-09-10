@@ -128,7 +128,6 @@ const dynamic = ref(false);
 const tenantEnabled = ref(true);
 // 搜索菜单
 const searchMenuRef = ref<InstanceType<typeof SearchMenu>>();
-const isDevAuthBypassed = import.meta.env.VITE_APP_ENV === 'development' && import.meta.env.VITE_APP_AUTH_BYPASS === 'true';
 
 const openSearchMenu = () => {
   searchMenuRef.value?.openSearch();
@@ -155,10 +154,6 @@ const dynamicClearEvent = async () => {
 
 /** 租户列表 */
 const initTenantList = async () => {
-  if (isDevAuthBypassed) {
-    tenantEnabled.value = false;
-    return;
-  }
   const { data } = await getTenantList(true);
   tenantEnabled.value = data.tenantEnabled === undefined ? true : data.tenantEnabled;
   if (tenantEnabled.value) {
