@@ -37,12 +37,18 @@ export interface ProductItem {
   plans: ProductPlan[];
 }
 export interface InsuredField {
+  id?: string;
   name: string;
   type: string;
   placeholder: string;
   required: boolean;
+  sort?: number;
+  options?: string[];
+  formatRule?: string;
+  businessRules?: string[];
 }
 export interface FieldGroup {
+  id?: string;
   name: string;
   fields: InsuredField[];
 }

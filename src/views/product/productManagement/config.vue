@@ -2,8 +2,11 @@
   <div class="config-page">
     <div class="config-shell">
       <header class="config-header">
-        <div class="config-title">产品配置 <el-tag v-if="isCopy" type="warning" effect="plain">复制新增</el-tag></div>
-        <div class="config-subtitle">配置共用基本信息、各产品方案及前端展示内容</div>
+        <div>
+          <div class="config-title">产品配置 <el-tag v-if="isCopy" type="warning" effect="plain">复制新增</el-tag></div>
+          <div class="config-subtitle">配置共用基本信息、各产品方案及前端展示内容</div>
+        </div>
+        <el-button :loading="saving" @click="save(true)">临时保存</el-button>
       </header>
 
       <nav class="config-nav">
@@ -117,56 +120,7 @@
         </section>
 
         <section v-show="activeTab === 'fields'" class="normal-section">
-          <el-alert v-if="hasOrders" class="order-lock-tip" title="该产品已有订单，投保信息配置不可修改" type="warning" :closable="false" show-icon />
-          <div class="tip blue">字段分类可修改名称，字段类型支持文本、日期、单选、多选、身份证、手机。单选和多选类型可配置选项值。</div>
-          <div v-for="(group, gi) in form.fieldGroups" :key="gi" class="field-group">
-            <div class="group-head">
-              <div>
-                <span class="group-number">{{ gi + 1 }}</span
-                ><el-input v-model="group.name" :disabled="hasOrders" />
-              </div>
-              <div v-if="!hasOrders">
-                <el-button link :disabled="gi === 0" @click="moveGroup(gi, -1)">▲ 上移</el-button
-                ><el-button link :disabled="gi === form.fieldGroups.length - 1" @click="moveGroup(gi, 1)">▼ 下移</el-button
-                ><el-button link type="danger" @click="form.fieldGroups.splice(gi, 1)">删除分类</el-button>
-              </div>
-            </div>
-            <el-table :data="group.fields" border>
-              <el-table-column type="index" label="序号" width="62" align="center" />
-              <el-table-column label="字段名称"
-                ><template #default="s"><el-input v-model="s.row.name" :disabled="hasOrders" /></template
-              ></el-table-column>
-              <el-table-column label="字段类型" width="150"
-                ><template #default="s"
-                  ><el-select v-model="s.row.type" :disabled="hasOrders"
-                    ><el-option v-for="t in fieldTypes" :key="t" :label="t" :value="t" /></el-select></template
-              ></el-table-column>
-              <el-table-column label="占位提示"
-                ><template #default="s"><el-input v-model="s.row.placeholder" :disabled="hasOrders" /></template
-              ></el-table-column>
-              <el-table-column label="必填" width="85" align="center"
-                ><template #default="s"><el-checkbox v-model="s.row.required" :disabled="hasOrders" /></template
-              ></el-table-column>
-              <el-table-column label="排序" width="120" align="center"
-                ><template #default="s"><el-input-number :model-value="s.$index + 1" disabled controls-position="right" /></template
-              ></el-table-column>
-              <el-table-column v-if="!hasOrders" label="操作" width="80" align="center"
-                ><template #default="s"
-                  ><el-button link type="danger" @click="group.fields.splice(s.$index, 1)">删除</el-button></template
-                ></el-table-column
-              >
-            </el-table>
-            <el-button
-              v-if="!hasOrders"
-              class="add-field"
-              icon="Plus"
-              @click="group.fields.push({ name: '', type: '文本', placeholder: '', required: false })"
-              >添加字段</el-button
-            >
-          </div>
-          <el-button v-if="!hasOrders" type="primary" plain icon="Plus" @click="form.fieldGroups.push({ name: '新分类', fields: [] })"
-            >添加字段分类</el-button
-          >
+          <InsuredFieldsConfig v-model="form.fieldGroups" :disabled="hasOrders" />
         </section>
 
         <section v-show="activeTab === 'read'" class="normal-section">
@@ -209,8 +163,7 @@
 
       <footer class="config-footer">
         <el-button @click="router.push('/product/list')">取消</el-button>
-        <el-button @click="save(true)">临时保存</el-button>
-        <el-button type="primary" :loading="saving" @click="save(false)">保存全部配置</el-button>
+        <el-button type="primary" :loading="saving" @click="save(false)">{{ activeTab === 'plan' ? '保存全部配置' : '保存配置' }}</el-button>
       </footer>
     </div>
   </div>
@@ -218,6 +171,7 @@
 
 <script setup name="ProductConfig" lang="ts">
 import { Close } from '@element-plus/icons-vue';
+import InsuredFieldsConfig from './components/InsuredFieldsConfig.vue';
 import { listInsuranceCompany } from '@/api/product/insuranceCompany';
 import type { InsuranceCompanyVO } from '@/api/product/insuranceCompany/types';
 import { getProductConfig, saveProductConfig } from '@/api/product/productManagement';
@@ -234,8 +188,8 @@ const tabs = [
   { name: 'agreement', label: '协议文件配置' }
 ];
 const units = ['贵州本部', '重庆本部', '保定本部', '四川本部'];
-const fieldTypes = ['文本', '日期', '单选', '多选', '身份证', '手机'];
-const activeTab = ref('plan');
+const tabNames = tabs.map((item) => item.name);
+const activeTab = ref(tabNames.includes(String(route.query.tab)) ? String(route.query.tab) : 'plan');
 const productIndex = ref(0);
 const planIndex = ref(0);
 const saving = ref(false);
@@ -282,11 +236,18 @@ const removePlan = (index: number) => {
   currentProduct.value.plans.splice(index, 1);
   planIndex.value = Math.max(0, Math.min(planIndex.value, currentProduct.value.plans.length - 1));
 };
-const moveGroup = (index: number, step: number) => {
-  if (hasOrders.value) return;
-  const target = index + step;
-  if (target < 0 || target >= form.fieldGroups.length) return;
-  [form.fieldGroups[index], form.fieldGroups[target]] = [form.fieldGroups[target], form.fieldGroups[index]];
+const validateFieldsConfig = () => {
+  if (!form.fieldGroups.length) return '请至少添加一个字段分类';
+  const invalidGroup = form.fieldGroups.findIndex((group) => !group.name.trim() || !group.fields.length);
+  if (invalidGroup >= 0) return `请完善第 ${invalidGroup + 1} 个字段分类的名称并至少添加一个字段`;
+  for (let groupIndex = 0; groupIndex < form.fieldGroups.length; groupIndex += 1) {
+    const group = form.fieldGroups[groupIndex];
+    const invalidField = group.fields.findIndex((field) => !field.name.trim() || !field.type || !field.placeholder.trim());
+    if (invalidField >= 0) return `请完善“${group.name}”中的第 ${invalidField + 1} 个字段`;
+    const invalidOptions = group.fields.findIndex((field) => ['单选', '多选'].includes(field.type) && !field.options?.length);
+    if (invalidOptions >= 0) return `请为“${group.fields[invalidOptions].name}”配置选项值`;
+  }
+  return '';
 };
 const validatePlanConfig = () => {
   if (!form.name || !form.code || !form.businessUnit) return '请完整填写产品名称、产品编码和业务归属';
@@ -319,17 +280,19 @@ const save = async (draft: boolean) => {
       ? !form.name || !form.code || !form.businessUnit
         ? '请完整填写产品名称、产品编码和业务归属'
         : ''
-      : validatePlanConfig();
+      : activeTab.value === 'fields'
+        ? validateFieldsConfig()
+        : validatePlanConfig();
   if (message) {
     proxy?.$modal.msgWarning(message);
-    activeTab.value = 'plan';
+    if (activeTab.value !== 'fields') activeTab.value = 'plan';
     return;
   }
   saving.value = true;
   try {
     form.productId = await saveProductConfig(form);
-    proxy?.$modal.msgSuccess(draft ? '临时保存成功' : '全部配置保存成功');
-    if (!draft) router.push('/product/list');
+    proxy?.$modal.msgSuccess(draft ? '临时保存成功' : '配置保存成功');
+    if (!draft && activeTab.value === 'plan') router.push('/product/list');
   } finally {
     saving.value = false;
   }
@@ -367,6 +330,10 @@ onMounted(async () => {
 }
 .config-header {
   padding: 22px 30px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
   border-bottom: 1px solid #ebeef5;
 }
 .config-title {
@@ -578,37 +545,6 @@ onMounted(async () => {
   color: #409eff;
   border-radius: 3px;
 }
-.field-group {
-  margin: 18px 0 24px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.group-head {
-  padding: 12px 15px;
-  background: #fafafa;
-}
-.group-head > div:first-child {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.group-number {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  background: #409eff;
-  color: #fff;
-  border-radius: 50%;
-  font-size: 12px;
-}
-.group-head .el-input {
-  width: 220px;
-}
-.add-field {
-  margin: 12px;
-}
 .read-card {
   position: relative;
   margin-bottom: 16px;
@@ -626,7 +562,7 @@ onMounted(async () => {
   border-top: 1px solid #ebeef5;
   background: #fff;
 }
-@media (max-width: 900px) {
+@media (max-width: 767px) {
   .config-page {
     padding: 10px;
   }

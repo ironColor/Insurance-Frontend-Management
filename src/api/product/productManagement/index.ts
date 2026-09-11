@@ -147,13 +147,127 @@ const defaultConfig = (id?: number): ProductConfig => ({
   introduction: '<h2>学生平安综合保险</h2><p>为学生提供安心、全面的成长保障。</p>',
   fieldGroups: [
     {
-      name: '学生信息',
+      id: 'group-applicant',
+      name: '投保人信息',
       fields: [
-        { name: '学生姓名', type: '文本', placeholder: '请输入学生姓名', required: true },
-        { name: '证件号码', type: '身份证', placeholder: '请输入身份证号码', required: true }
+        {
+          id: 'applicant-name',
+          name: '投保人姓名',
+          type: '文本',
+          placeholder: '请输入投保人姓名',
+          required: true,
+          sort: 1,
+          options: [],
+          formatRule: '无',
+          businessRules: []
+        },
+        {
+          id: 'applicant-phone',
+          name: '联系电话',
+          type: '手机',
+          placeholder: '请输入联系电话',
+          required: true,
+          sort: 2,
+          options: [],
+          formatRule: '手机号',
+          businessRules: []
+        }
       ]
     },
-    { name: '投保人信息', fields: [{ name: '投保人电话', type: '手机', placeholder: '请输入手机号码', required: true }] }
+    {
+      id: 'group-student',
+      name: '学生信息',
+      fields: [
+        {
+          id: 'student-name',
+          name: '学生姓名',
+          type: '文本',
+          placeholder: '请输入学生姓名',
+          required: true,
+          sort: 1,
+          options: [],
+          formatRule: '无',
+          businessRules: []
+        },
+        {
+          id: 'student-id-type',
+          name: '证件类型',
+          type: '单选',
+          placeholder: '请选择证件类型',
+          required: true,
+          sort: 2,
+          options: ['居民身份证', '护照', '其他证件'],
+          formatRule: '无',
+          businessRules: []
+        },
+        {
+          id: 'student-id-number',
+          name: '证件号码',
+          type: '身份证',
+          placeholder: '请输入证件号码',
+          required: true,
+          sort: 3,
+          options: [],
+          formatRule: '身份证号',
+          businessRules: ['已支付证件号校验', '已投保证件号校验']
+        },
+        {
+          id: 'student-school',
+          name: '学校名称',
+          type: '文本',
+          placeholder: '请输入学校名称',
+          required: true,
+          sort: 4,
+          options: [],
+          formatRule: '无',
+          businessRules: []
+        },
+        {
+          id: 'student-grade',
+          name: '年级',
+          type: '单选',
+          placeholder: '请选择年级',
+          required: true,
+          sort: 5,
+          options: ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'],
+          formatRule: '无',
+          businessRules: []
+        },
+        {
+          id: 'student-class',
+          name: '班级',
+          type: '单选',
+          placeholder: '请选择班级',
+          required: true,
+          sort: 6,
+          options: ['1班', '2班', '3班', '4班'],
+          formatRule: '无',
+          businessRules: []
+        },
+        {
+          id: 'student-birthday',
+          name: '出生日期',
+          type: '日期',
+          placeholder: '请选择出生日期',
+          required: false,
+          sort: 7,
+          options: [],
+          formatRule: '无',
+          businessRules: []
+        },
+        {
+          id: 'student-hobby',
+          name: '兴趣爱好',
+          type: '多选',
+          placeholder: '请选择兴趣爱好（可多选）',
+          required: false,
+          sort: 8,
+          options: ['阅读', '运动', '音乐', '绘画'],
+          formatRule: '无',
+          businessRules: []
+        }
+      ]
+    }
   ],
   forceRead: [{ title: '投保须知', content: '请仔细阅读保障责任、责任免除及理赔说明。', seconds: 5, enabled: true }],
   agreements: [{ name: '保险条款.pdf', url: '', required: true }]
