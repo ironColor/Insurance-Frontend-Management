@@ -16,5 +16,13 @@
   "proseWrap": "preserve",
   "htmlWhitespaceSensitivity": "css",
   "vueIndentScriptAndStyle": false,
-  "endOfLine": "auto"
+  "endOfLine": "auto",
+  "overrides": [
+    {
+      "files": "src/views/product/productManagement/config.vue",
+      "options": {
+        "tabWidth": 4
+      }
+    }
+  ]
 }

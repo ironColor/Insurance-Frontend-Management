@@ -52,6 +52,46 @@ export interface FieldGroup {
   name: string;
   fields: InsuredField[];
 }
+export interface ForceReadItem {
+  title: string;
+  content: string;
+  seconds: number;
+  enabled: boolean;
+  requireScroll: boolean;
+  requireDuration: boolean;
+  sort: number;
+  important?: boolean;
+  readMode?: 'floating' | 'scroll' | 'duration';
+}
+
+export interface ForceReadRule {
+  requireScroll: boolean;
+  requireDuration: boolean;
+  seconds: number;
+}
+
+export type AgreementConfigType = 'productFile' | 'agreement';
+export type AgreementContentType = 'text' | 'link' | 'attachment';
+
+export interface AgreementConfigItem {
+  id?: number;
+  configType: AgreementConfigType;
+  code?: string;
+  name: string;
+  agreementType: string;
+  version?: string;
+  contentType?: AgreementContentType;
+  content?: string;
+  link?: string;
+  fileName?: string;
+  enabled: boolean;
+  sort?: number;
+  remark?: string;
+  updatedAt: string;
+  /** 兼容旧版协议数据。 */
+  url?: string;
+  required?: boolean;
+}
 
 export interface ProductConfig {
   productId?: number;
@@ -62,7 +102,11 @@ export interface ProductConfig {
   subtitle: string;
   products: ProductItem[];
   introduction: string;
+  customerServicePhone: string;
+  customerServiceHours: string;
+  customerServiceRemark: string;
   fieldGroups: FieldGroup[];
-  forceRead: { title: string; content: string; seconds: number; enabled: boolean }[];
-  agreements: { name: string; url: string; required: boolean }[];
+  forceReadRule: ForceReadRule;
+  forceRead: ForceReadItem[];
+  agreements: AgreementConfigItem[];
 }

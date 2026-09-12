@@ -145,6 +145,9 @@ const defaultConfig = (id?: number): ProductConfig => ({
       ]
     : [],
   introduction: '<h2>学生平安综合保险</h2><p>为学生提供安心、全面的成长保障。</p>',
+  customerServicePhone: '',
+  customerServiceHours: '',
+  customerServiceRemark: '',
   fieldGroups: [
     {
       id: 'group-applicant',
@@ -269,8 +272,91 @@ const defaultConfig = (id?: number): ProductConfig => ({
       ]
     }
   ],
-  forceRead: [{ title: '投保须知', content: '请仔细阅读保障责任、责任免除及理赔说明。', seconds: 5, enabled: true }],
-  agreements: [{ name: '保险条款.pdf', url: '', required: true }]
+  forceReadRule: {
+    requireScroll: true,
+    requireDuration: true,
+    seconds: 10
+  },
+  forceRead: [
+    {
+      title: '重要提示',
+      content:
+        '<p>1. 本产品由诚安达保险销售服务股份有限公司销售，承保公司以具体方案为准。</p><p>2. 投保前请仔细阅读保险条款，特别是责任免除部分。</p><p>3. 本产品保障期间为一年，到期后可续保。</p><p>4. 如有疑问，请拨打客服电话咨询。</p>',
+      seconds: 0,
+      enabled: true,
+      requireScroll: false,
+      requireDuration: false,
+      sort: 1,
+      important: true
+    },
+    {
+      title: '投保须知',
+      content: '请仔细阅读保障责任、责任免除及理赔说明。',
+      seconds: 10,
+      enabled: true,
+      requireScroll: true,
+      requireDuration: true,
+      sort: 2,
+      important: false
+    }
+  ],
+  agreements: [
+    {
+      id: 1,
+      configType: 'productFile',
+      code: 'AGR-2024-001',
+      name: '个人意外伤害保险投保须知',
+      agreementType: '投保须知',
+      contentType: 'text',
+      content: '<h3>个人意外伤害保险投保须知</h3><p>投保前请仔细阅读产品保障责任、责任免除及理赔说明。</p>',
+      enabled: true,
+      sort: 1,
+      remark: '默认投保须知，适用于所有意外险产品',
+      updatedAt: '2024-01-15 10:30:00'
+    },
+    {
+      id: 2,
+      configType: 'productFile',
+      name: '健康保险产品条款',
+      agreementType: '产品条款',
+      contentType: 'attachment',
+      fileName: '健康保险产品条款.pdf',
+      enabled: true,
+      sort: 2,
+      updatedAt: '2024-02-20 14:15:00'
+    },
+    {
+      id: 3,
+      configType: 'agreement',
+      name: '用户服务协议',
+      agreementType: '用户服务协议',
+      version: 'V2.1.0',
+      content: '<h2>用户服务协议</h2><p>欢迎使用本平台服务。请在使用服务前认真阅读并理解本协议内容。</p>',
+      enabled: true,
+      updatedAt: '2024-06-15 10:30:00'
+    },
+    {
+      id: 4,
+      configType: 'agreement',
+      name: '隐私政策',
+      agreementType: '隐私政策',
+      version: 'V1.5.2',
+      content: '<h2>隐私政策</h2><p>我们重视并保护您的个人信息与隐私安全。</p>',
+      enabled: true,
+      updatedAt: '2024-05-20 14:15:00'
+    },
+    {
+      id: 5,
+      configType: 'productFile',
+      name: '在线服务协议',
+      agreementType: '服务协议',
+      contentType: 'link',
+      link: 'https://example.com/service-agreement',
+      enabled: false,
+      sort: 3,
+      updatedAt: '2024-03-10 09:00:00'
+    }
+  ]
 });
 const configs = new Map<number, ProductConfig>();
 export const getProductConfig = async (id?: number) => {
