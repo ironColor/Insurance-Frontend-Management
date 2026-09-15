@@ -52,6 +52,15 @@ export interface FieldGroup {
   name: string;
   fields: InsuredField[];
 }
+
+export type IntroductionMediaType = 'video' | 'carousel';
+
+export interface IntroductionCarouselImage {
+  id: string;
+  name: string;
+  url: string;
+}
+
 export interface ForceReadItem {
   title: string;
   content: string;
@@ -102,6 +111,15 @@ export interface ProductConfig {
   subtitle: string;
   products: ProductItem[];
   introduction: string;
+  introductionMediaType: IntroductionMediaType;
+  introductionVideoUrl: string;
+  introductionVideoName: string;
+  introductionVideoPoster: string;
+  introductionVideoPosterName: string;
+  introductionVideoAutoplay: boolean;
+  introductionVideoMuted: boolean;
+  introductionCarouselImages: IntroductionCarouselImage[];
+  introductionCarouselInterval: number;
   customerServicePhone: string;
   customerServiceHours: string;
   customerServiceRemark: string;

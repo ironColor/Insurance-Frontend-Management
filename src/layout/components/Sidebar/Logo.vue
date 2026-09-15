@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 import variables from '@/assets/styles/variables.module.scss';
-import logo from '@/assets/logo/logo.png';
+import logo from '@/assets/logo/brand-logo.png';
 import { useSettingsStore } from '@/store/modules/settings';
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
 import { NavTypeEnum } from '@/enums/NavTypeEnum';
@@ -86,6 +86,7 @@ const getLogoTextColor = computed(() => {
     & .sidebar-logo {
       width: 32px;
       height: 32px;
+      object-fit: contain;
       vertical-align: middle;
       margin-right: 12px;
       margin-left: 12px;

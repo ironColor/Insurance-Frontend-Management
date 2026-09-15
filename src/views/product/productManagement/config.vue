@@ -138,22 +138,8 @@
                     <el-empty v-else :image-size="88" :description="hasOrders ? '暂无产品' : '暂无产品，请点击添加产品'" />
                 </section>
 
-                <section v-show="activeTab === 'intro'" class="normal-section">
-                    <div class="section-title">介绍页配置</div>
-                    <div class="tip">配置销售端产品介绍页展示的富文本、图片及视频内容</div>
-                    <Editor v-model="form.introduction" :min-height="430" />
-                    <div class="block-title customer-service-title"><b>客服电话</b><span>服务热线电话</span></div>
-                    <el-form :model="form" label-position="top" class="customer-service-grid">
-                        <el-form-item label="客服电话号码">
-                            <el-input v-model="form.customerServicePhone" placeholder="请输入客服电话" />
-                        </el-form-item>
-                        <el-form-item label="服务时间">
-                            <el-input v-model="form.customerServiceHours" placeholder="例如：9:00-18:00" />
-                        </el-form-item>
-                        <el-form-item label="备注说明">
-                            <el-input v-model="form.customerServiceRemark" placeholder="备注" />
-                        </el-form-item>
-                    </el-form>
+                <section v-show="activeTab === 'intro'" class="normal-section intro-section">
+                    <IntroductionConfig v-model="form" />
                 </section>
 
                 <section v-show="activeTab === 'fields'" class="normal-section">
@@ -211,6 +197,10 @@
                                     <b>{{ x.important ? '重要提示信息' : x.title || `阅读内容${i + 1}` }}</b>
                                     <el-tag v-if="x.important" type="danger" effect="light" size="small">重要</el-tag>
                                 </div>
+                                <div v-if="x.important" class="read-mode-header">
+                                    <span class="read-mode-label">展示方式：</span>
+                                    <span class="read-mode-static"><span class="read-mode-dot"></span>悬浮展示</span>
+                                </div>
                                 <div v-if="!x.important" class="read-card-actions">
                                     <el-button link :disabled="i <= 1" @click="moveForceRead(i, -1)"
                                         ><el-icon><ArrowUp /></el-icon>上移</el-button
@@ -233,9 +223,6 @@
                                 <Editor v-model="x.content" :min-height="180" />
                             </el-form-item>
                             <div class="read-settings-grid">
-                                <el-form-item v-if="x.important" label="展示方式" class="read-mode-item">
-                                    <span class="read-mode-static"><span class="read-mode-dot"></span>悬浮展示</span>
-                                </el-form-item>
                                 <el-form-item v-if="!x.important" label="排序" class="read-sort-item">
                                     <el-input-number v-model="x.sort" :min="2" :controls="false" />
                                 </el-form-item>
@@ -480,6 +467,7 @@
 <script setup name="ProductConfig" lang="ts">
 import { ArrowDown, ArrowUp, Close, Delete } from '@element-plus/icons-vue';
 import InsuredFieldsConfig from './components/InsuredFieldsConfig.vue';
+import IntroductionConfig from './components/IntroductionConfig.vue';
 import { listInsuranceCompany } from '@/api/product/insuranceCompany';
 import type { InsuranceCompanyVO } from '@/api/product/insuranceCompany/types';
 import { getProductConfig, saveProductConfig } from '@/api/product/productManagement';
@@ -539,6 +527,15 @@ const form = reactive<ProductConfig>({
     subtitle: '',
     products: [],
     introduction: '',
+    introductionMediaType: 'video',
+    introductionVideoUrl: '',
+    introductionVideoName: '',
+    introductionVideoPoster: '',
+    introductionVideoPosterName: '',
+    introductionVideoAutoplay: true,
+    introductionVideoMuted: true,
+    introductionCarouselImages: [],
+    introductionCarouselInterval: 3,
     customerServicePhone: '',
     customerServiceHours: '',
     customerServiceRemark: '',
@@ -786,6 +783,22 @@ const validatePlanConfig = () => {
     }
     return '';
 };
+const validateIntroConfig = () => {
+    if (!hasEditorContent(form.introduction)) return '请填写顶部介绍内容';
+    if (form.introductionMediaType === 'video' && !form.introductionVideoUrl) return '请上传宣传视频';
+    if (form.introductionMediaType === 'carousel' && !form.introductionCarouselImages.length) return '请至少添加一张轮播图片';
+    return '';
+};
+const sanitizeIntroMedia = () => {
+    if (form.introductionMediaType === 'video') {
+        form.introductionCarouselImages = [];
+        return;
+    }
+    form.introductionVideoUrl = '';
+    form.introductionVideoName = '';
+    form.introductionVideoPoster = '';
+    form.introductionVideoPosterName = '';
+};
 const save = async (draft: boolean) => {
     const message = hasOrders.value
         ? ''
@@ -795,16 +808,19 @@ const save = async (draft: boolean) => {
               : ''
           : activeTab.value === 'plan'
             ? validatePlanConfig()
-            : activeTab.value === 'fields'
-              ? validateFieldsConfig()
-              : '';
+            : activeTab.value === 'intro'
+              ? validateIntroConfig()
+              : activeTab.value === 'fields'
+                ? validateFieldsConfig()
+                : '';
     if (message) {
         proxy?.$modal.msgWarning(message);
-        if (activeTab.value !== 'fields') activeTab.value = 'plan';
+        if (!['fields', 'intro'].includes(activeTab.value)) activeTab.value = 'plan';
         return;
     }
     saving.value = true;
     try {
+        sanitizeIntroMedia();
         form.productId = await saveProductConfig(form);
         proxy?.$modal.msgSuccess(draft ? '临时保存成功' : '配置保存成功');
         if (!draft && activeTab.value === 'plan') router.push('/product/list');
@@ -823,6 +839,15 @@ onMounted(async () => {
     }
     const sourceId = route.query.copy ? Number(route.query.copy) : route.params.id ? Number(route.params.id) : undefined;
     Object.assign(form, await getProductConfig(sourceId));
+    form.introductionMediaType = form.introductionMediaType === 'carousel' ? 'carousel' : 'video';
+    form.introductionVideoUrl ||= '';
+    form.introductionVideoName ||= '';
+    form.introductionVideoPoster ||= '';
+    form.introductionVideoPosterName ||= '';
+    form.introductionVideoAutoplay ??= true;
+    form.introductionVideoMuted ??= true;
+    form.introductionCarouselImages ||= [];
+    form.introductionCarouselInterval = Math.min(10, Math.max(2, form.introductionCarouselInterval || 3));
     form.agreements = form.agreements.map((item, index) => {
         const configType = item.configType || 'productFile';
         const contentType = item.contentType || (item.url ? 'link' : 'attachment');
@@ -1095,13 +1120,8 @@ onMounted(async () => {
 .normal-section {
     max-width: 1120px;
 }
-.customer-service-title {
-    margin-top: 24px;
-}
-.customer-service-grid {
-    display: grid;
-    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(280px, 2fr);
-    gap: 0 16px;
+.intro-section {
+    max-width: none;
 }
 .tip {
     margin: -10px 0 18px;
@@ -1175,6 +1195,7 @@ onMounted(async () => {
 .read-card-header,
 .read-card-name,
 .read-card-actions,
+.read-mode-header,
 .read-switch,
 .duration-option {
     display: flex;
@@ -1217,6 +1238,15 @@ onMounted(async () => {
     flex: 0 0 auto;
     gap: 2px;
 }
+.read-mode-header {
+    flex: 0 0 auto;
+    gap: 8px;
+    color: #606266;
+    font-size: 13px;
+}
+.read-mode-label {
+    color: #909399;
+}
 .read-card-actions .el-button + .el-button {
     margin-left: 4px;
 }
@@ -1228,9 +1258,6 @@ onMounted(async () => {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 0 24px;
-}
-.read-mode-item {
-    grid-column: 1 / -1;
 }
 .read-mode-group {
     display: flex;
@@ -1532,8 +1559,7 @@ onMounted(async () => {
         padding: 18px 16px;
     }
     .basic-grid,
-    .product-info-grid,
-    .customer-service-grid {
+    .product-info-grid {
         grid-template-columns: 1fr;
     }
     .basic-grid :deep(.el-form-item:nth-child(3)) {
@@ -1552,14 +1578,15 @@ onMounted(async () => {
         width: 100%;
         justify-content: flex-end;
     }
+    .read-mode-header {
+        width: 100%;
+        justify-content: flex-end;
+    }
     .read-card :deep(.el-card__body) {
         padding: 16px 14px 2px;
     }
     .read-settings-grid {
         grid-template-columns: 1fr;
-    }
-    .read-mode-item {
-        grid-column: auto;
     }
     .read-rule-heading {
         align-items: flex-start;

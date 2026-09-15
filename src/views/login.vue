@@ -2,7 +2,10 @@
   <div class="login">
     <el-form ref="loginRef" :model="loginForm" :rules="loginRules" class="login-form">
       <div class="title-box">
-        <h3 class="title">{{ title }}</h3>
+        <div class="brand-title">
+          <img src="@/assets/logo/brand-logo.png" alt="" class="brand-logo" />
+          <h3 class="title">{{ title }}</h3>
+        </div>
         <lang-select />
       </div>
       <el-form-item v-if="tenantEnabled" prop="tenantId">
@@ -246,10 +249,25 @@ onMounted(() => {
 .title-box {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 26px;
+
+  .brand-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-logo {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    flex: none;
+  }
 
   .title {
-    margin: 0px auto 26px auto;
+    margin: 0;
     text-align: center;
     color: var(--el-text-color-primary);
     font-weight: 600;
@@ -257,6 +275,8 @@ onMounted(() => {
   }
 
   :deep(.lang-select--style) {
+    position: absolute;
+    right: 0;
     line-height: 0;
     color: var(--el-text-color-secondary);
   }
