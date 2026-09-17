@@ -457,7 +457,7 @@
             </main>
 
             <footer class="config-footer">
-                <el-button @click="router.push('/product/list')">取消</el-button>
+                <el-button @click="router.push('/product/product')">取消</el-button>
                 <el-button type="primary" :loading="saving" @click="save(false)">{{ activeTab === 'plan' ? '保存全部配置' : '保存配置' }}</el-button>
             </footer>
         </div>
@@ -823,7 +823,7 @@ const save = async (draft: boolean) => {
         sanitizeIntroMedia();
         form.productId = await saveProductConfig(form);
         proxy?.$modal.msgSuccess(draft ? '临时保存成功' : '配置保存成功');
-        if (!draft && activeTab.value === 'plan') router.push('/product/list');
+        if (!draft && activeTab.value === 'plan') router.push('/product/product');
     } finally {
         saving.value = false;
     }

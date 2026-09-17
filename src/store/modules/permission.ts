@@ -63,7 +63,7 @@ export const usePermissionStore = defineStore('permission', () => {
     setDefaultRoutes(sidebarRoutes);
     setTopbarRoutes(defaultRoutes);
     // 路由name重复检查
-    duplicateRouteChecker(asyncRoutes, sidebarRoutes);
+    duplicateRouteChecker([...constantRoutes, ...asyncRoutes], sidebarRoutes);
     return new Promise<RouteRecordRaw[]>((resolve) => resolve(rewriteRoutes));
   };
 
@@ -191,8 +191,11 @@ function duplicateRouteChecker(localRoutes: Route[], routes: Route[]) {
 
   const nameList: string[] = [];
   allRoutes.forEach((route) => {
-    const name = route.name.toString();
-    if (name && nameList.includes(name)) {
+    const name = route.name?.toString();
+    if (!name) {
+      return;
+    }
+    if (nameList.includes(name)) {
       const message = `路由名称: [${name}] 重复, 会造成 404`;
       console.error(message);
       ElNotification({
@@ -202,6 +205,6 @@ function duplicateRouteChecker(localRoutes: Route[], routes: Route[]) {
       });
       return;
     }
-    nameList.push(route.name.toString());
+    nameList.push(name);
   });
 }

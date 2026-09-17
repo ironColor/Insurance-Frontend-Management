@@ -76,37 +76,15 @@ export const constantRoutes: RouteRecordRaw[] = [
     ]
   },
   {
-    path: '/product',
+    path: '/product/config',
     component: Layout,
-    redirect: '/product/list',
-    alwaysShow: true,
-    name: 'ProductManagement',
-    meta: { title: '产品管理', icon: 'shopping' },
+    hidden: true,
     children: [
       {
-        path: 'list',
-        component: () => import('@/views/product/productManagement/index.vue'),
-        name: 'ProductList',
-        meta: { title: '产品管理', icon: 'list' }
-      },
-      {
-        path: 'config/:id?',
+        path: ':id?',
         component: () => import('@/views/product/productManagement/config.vue'),
         name: 'ProductConfig',
-        hidden: true,
-        meta: { title: '产品配置', activeMenu: '/product/list' }
-      },
-      {
-        path: 'insurance-company',
-        component: () => import('@/views/product/insuranceCompany/index.vue'),
-        name: 'InsuranceCompany',
-        meta: { title: '合作保险公司', icon: 'company' }
-      },
-      {
-        path: 'banner',
-        component: () => import('@/views/product/banner/index.vue'),
-        name: 'BannerManagement',
-        meta: { title: 'Banner 图管理', icon: 'upload' }
+        meta: { title: '产品配置', activeMenu: '/product/product' }
       }
     ]
   },
@@ -119,7 +97,7 @@ export const constantRoutes: RouteRecordRaw[] = [
         path: 'list',
         component: () => import('@/views/order/index.vue'),
         name: 'OrderList',
-        meta: { title: '订单列表', activeMenu: '/product/list' }
+        meta: { title: '订单列表', activeMenu: '/product/product' }
       }
     ]
   },
