@@ -16,7 +16,7 @@
             </nav>
 
             <main class="config-body">
-                <section v-show="activeTab === 'plan'" class="plan-content">
+                <section v-show="activeTab === 'basic'" class="plan-content">
                     <el-alert
                         v-if="hasOrders"
                         class="order-lock-tip"
@@ -46,7 +46,17 @@
                         ><el-form-item label="顶部横幅副标题"
                             ><el-input v-model="form.subtitle" type="textarea" :rows="2" placeholder="请输入顶部横幅副标题" /></el-form-item
                     ></el-form>
+                </section>
 
+                <section v-show="activeTab === 'plan'" class="plan-content">
+                    <el-alert
+                        v-if="hasOrders"
+                        class="order-lock-tip"
+                        title="该产品已有订单，仅保障责任和方案详情可修改"
+                        type="warning"
+                        :closable="false"
+                        show-icon
+                    />
                     <div class="horizontal-tabs product-tabs">
                         <button
                             v-for="(product, index) in form.products"
@@ -220,7 +230,7 @@
                                 <el-input v-model="x.title" placeholder="请输入内容标题" />
                             </el-form-item>
                             <el-form-item label="阅读内容" required class="read-content-item">
-                                <Editor v-model="x.content" :min-height="180" />
+                                <Editor v-model="x.content" :min-height="120" auto-height />
                             </el-form-item>
                             <div class="read-settings-grid">
                                 <el-form-item v-if="!x.important" label="排序" class="read-sort-item">
@@ -268,9 +278,9 @@
                     </div>
 
                     <div class="agreement-table-wrap">
-                        <el-table :data="pagedAgreements" border empty-text="暂无符合条件的协议配置">
+                        <el-table :data="filteredAgreements" border empty-text="暂无符合条件的协议配置">
                             <el-table-column label="序号" width="66" align="center">
-                                <template #default="s">{{ (agreementPage - 1) * agreementPageSize + s.$index + 1 }}</template>
+                                <template #default="s">{{ s.$index + 1 }}</template>
                             </el-table-column>
                             <el-table-column label="配置类型" width="100">
                                 <template #default="s">
@@ -309,17 +319,6 @@
                                 </template>
                             </el-table-column>
                         </el-table>
-                    </div>
-
-                    <div class="agreement-pagination">
-                        <span>共 {{ filteredAgreements.length }} 条</span>
-                        <el-pagination
-                            v-model:current-page="agreementPage"
-                            :page-size="agreementPageSize"
-                            :total="filteredAgreements.length"
-                            layout="prev, pager, next"
-                            background
-                        />
                     </div>
 
                     <el-dialog
@@ -458,7 +457,9 @@
 
             <footer class="config-footer">
                 <el-button @click="router.push('/product/product')">取消</el-button>
-                <el-button type="primary" :loading="saving" @click="save(false)">{{ activeTab === 'plan' ? '保存全部配置' : '保存配置' }}</el-button>
+                <el-button type="primary" :loading="saving" @click="save(false)">{{
+                    ['basic', 'plan'].includes(activeTab) ? '保存全部配置' : '保存配置'
+                }}</el-button>
             </footer>
         </div>
     </div>
@@ -478,7 +479,8 @@ const route = useRoute();
 const router = useRouter();
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
 const tabs = [
-    { name: 'plan', label: '产品方案配置' },
+    { name: 'basic', label: '基础信息配置' },
+    { name: 'plan', label: '产品配置' },
     { name: 'intro', label: '介绍页配置' },
     { name: 'fields', label: '投保信息配置' },
     { name: 'read', label: '强制阅读' },
@@ -504,7 +506,7 @@ const createEmptyAgreement = (): AgreementConfigItem => ({
     updatedAt: ''
 });
 const tabNames = tabs.map((item) => item.name);
-const activeTab = ref(tabNames.includes(String(route.query.tab)) ? String(route.query.tab) : 'plan');
+const activeTab = ref(tabNames.includes(String(route.query.tab)) ? String(route.query.tab) : 'basic');
 const productIndex = ref(0);
 const planIndex = ref(0);
 const saving = ref(false);
@@ -512,8 +514,6 @@ const companyLoading = ref(false);
 const companyOptions = ref<InsuranceCompanyVO[]>([]);
 const agreementFilters = reactive({ keyword: '', configType: '', agreementType: '' });
 const agreementQuery = reactive({ keyword: '', configType: '', agreementType: '' });
-const agreementPage = ref(1);
-const agreementPageSize = 10;
 const agreementDialogVisible = ref(false);
 const agreementDialogTitle = ref('新增配置');
 const editingAgreementIndex = ref(-1);
@@ -566,10 +566,6 @@ const filteredAgreements = computed(() => {
         return matchesKeyword && matchesConfigType && matchesAgreementType;
     });
 });
-const pagedAgreements = computed(() => {
-    const start = (agreementPage.value - 1) * agreementPageSize;
-    return filteredAgreements.value.slice(start, start + agreementPageSize);
-});
 const agreementConfigTypeText = (type: AgreementConfigType) => (type === 'agreement' ? '协议配置' : '产品文件');
 const agreementContentTypeText = (type?: AgreementConfigItem['contentType']) => {
     if (!type) return '-';
@@ -577,12 +573,10 @@ const agreementContentTypeText = (type?: AgreementConfigItem['contentType']) => 
 };
 const searchAgreements = () => {
     Object.assign(agreementQuery, agreementFilters);
-    agreementPage.value = 1;
 };
 const resetAgreementFilters = () => {
     Object.assign(agreementFilters, { keyword: '', configType: '', agreementType: '' });
     Object.assign(agreementQuery, agreementFilters);
-    agreementPage.value = 1;
 };
 const selectAgreementConfigType = (type: AgreementConfigType) => {
     agreementForm.configType = type;
@@ -638,7 +632,6 @@ const saveAgreementConfig = () => {
     if (editingAgreementIndex.value >= 0) form.agreements.splice(editingAgreementIndex.value, 1, item);
     else form.agreements.unshift({ ...item, id: Date.now() });
     agreementDialogVisible.value = false;
-    agreementPage.value = 1;
     proxy?.$modal.msgSuccess(editingAgreementIndex.value >= 0 ? '配置更新成功' : '配置新增成功');
 };
 const deleteAgreement = (item: AgreementConfigItem) => {
@@ -647,7 +640,6 @@ const deleteAgreement = (item: AgreementConfigItem) => {
         .then(() => {
             const index = form.agreements.indexOf(item);
             if (index >= 0) form.agreements.splice(index, 1);
-            if (pagedAgreements.value.length === 0 && agreementPage.value > 1) agreementPage.value -= 1;
             proxy?.$modal.msgSuccess('删除成功');
         })
         .catch(() => undefined);
@@ -759,8 +751,13 @@ const validateFieldsConfig = () => {
     }
     return '';
 };
-const validatePlanConfig = () => {
+const validateBasicConfig = () => {
     if (!form.name || !form.code || !form.businessUnit) return '请完整填写产品名称、产品编码和业务归属';
+    return '';
+};
+const validatePlanConfig = () => {
+    const basicMessage = validateBasicConfig();
+    if (basicMessage) return basicMessage;
     if (!form.products.length) return '请至少添加一个产品';
     if (!form.products.some((product) => product.required)) return '请至少将一个产品设置为必选';
     const invalidProductIndex = form.products.findIndex((product) => !product.name || !product.type || !product.companyId);
@@ -806,16 +803,18 @@ const save = async (draft: boolean) => {
           ? !form.name || !form.code || !form.businessUnit
               ? '请完整填写产品名称、产品编码和业务归属'
               : ''
-          : activeTab.value === 'plan'
-            ? validatePlanConfig()
-            : activeTab.value === 'intro'
-              ? validateIntroConfig()
-              : activeTab.value === 'fields'
-                ? validateFieldsConfig()
-                : '';
+          : activeTab.value === 'basic'
+            ? validateBasicConfig()
+            : activeTab.value === 'plan'
+              ? validatePlanConfig()
+              : activeTab.value === 'intro'
+                ? validateIntroConfig()
+                : activeTab.value === 'fields'
+                  ? validateFieldsConfig()
+                  : '';
     if (message) {
         proxy?.$modal.msgWarning(message);
-        if (!['fields', 'intro'].includes(activeTab.value)) activeTab.value = 'plan';
+        if (activeTab.value === 'plan' && validateBasicConfig()) activeTab.value = 'basic';
         return;
     }
     saving.value = true;
@@ -1391,15 +1390,6 @@ onMounted(async () => {
     border-radius: 50%;
     background: currentColor;
 }
-.agreement-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-top: 18px;
-    color: #909399;
-    font-size: 13px;
-}
 .agreement-dialog-body {
     min-width: 0;
 }
@@ -1616,10 +1606,6 @@ onMounted(async () => {
     }
     .agreement-link-input {
         grid-template-columns: 1fr;
-    }
-    .agreement-pagination {
-        align-items: flex-start;
-        flex-direction: column;
     }
     .content-type-options {
         width: 100%;

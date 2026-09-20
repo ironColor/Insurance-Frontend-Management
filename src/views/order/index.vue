@@ -61,6 +61,7 @@
               <el-option label="全部" value="" />
               <el-option label="已支付" value="paid" />
               <el-option label="未支付" value="unpaid" />
+              <el-option label="已退款" value="refunded" />
             </el-select>
           </el-form-item>
           <el-form-item label="创建时间" prop="createDate">
@@ -108,9 +109,9 @@
           <el-table-column prop="phone" label="联系电话" width="130" />
           <el-table-column prop="totalAmount" label="订单总金额" width="110" align="right" />
           <el-table-column prop="createTime" label="创建时间" width="160" />
-          <el-table-column label="是否支付" width="100" align="center">
+          <el-table-column label="支付状态" width="100" align="center">
             <template #default="scope"
-              ><el-tag :type="scope.row.payStatus === 'paid' ? 'success' : 'warning'">{{ getStatusText(scope.row.payStatus) }}</el-tag></template
+              ><el-tag :type="getStatusTagType(scope.row.payStatus)">{{ getStatusText(scope.row.payStatus) }}</el-tag></template
             >
           </el-table-column>
           <el-table-column prop="payTime" label="支付时间" width="160">
@@ -156,7 +157,7 @@
             <div>
               <dt>支付状态</dt>
               <dd>
-                <el-tag type="success">{{ getStatusText(selectedOrder.payStatus) }}</el-tag>
+                <el-tag :type="getStatusTagType(selectedOrder.payStatus)">{{ getStatusText(selectedOrder.payStatus) }}</el-tag>
               </dd>
             </div>
             <div>
@@ -263,7 +264,7 @@ const query = reactive<OrderQuery>({
   pageNum: 1,
   pageSize: 10,
   keyword: '',
-  payStatus: route.query.payStatus === 'paid' || route.query.payStatus === 'unpaid' ? route.query.payStatus : '',
+  payStatus: ['paid', 'unpaid', 'refunded'].includes(String(route.query.payStatus)) ? (route.query.payStatus as OrderPayStatus) : '',
   createDate: '',
   productCode: typeof route.query.productCode === 'string' ? route.query.productCode : ''
 });
@@ -273,7 +274,13 @@ const rangeStart = computed(() => (total.value ? (query.pageNum - 1) * query.pag
 const rangeEnd = computed(() => Math.min(query.pageNum * query.pageSize, total.value));
 
 const formatMoney = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-const getStatusText = (status: OrderPayStatus) => (status === 'paid' ? '已支付' : '未支付');
+const payStatusMeta: Record<OrderPayStatus, { text: string; tagType: 'success' | 'warning' | 'danger' }> = {
+  paid: { text: '已支付', tagType: 'success' },
+  unpaid: { text: '未支付', tagType: 'warning' },
+  refunded: { text: '已退款', tagType: 'danger' }
+};
+const getStatusText = (status: OrderPayStatus) => payStatusMeta[status].text;
+const getStatusTagType = (status: OrderPayStatus) => payStatusMeta[status].tagType;
 
 const loadOrders = async () => {
   loading.value = true;
@@ -337,7 +344,7 @@ const handleExport = async () => {
     '联系电话',
     '订单总金额',
     '创建时间',
-    '是否支付',
+    '支付状态',
     '支付时间'
   ];
   const body = rows.map((row, index) => [

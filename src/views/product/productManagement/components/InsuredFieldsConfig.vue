@@ -191,6 +191,17 @@ const previousBusinessRuleValues = new WeakMap<InsuredField, string[]>();
 
 const supportsOptions = (field: InsuredField) => ['单选', '多选'].includes(field.type);
 const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createField = (sort: number): InsuredField => ({
+  id: createId(),
+  name: '',
+  type: '文本',
+  placeholder: '',
+  required: false,
+  sort,
+  options: [],
+  formatRule: '无',
+  businessRules: []
+});
 const normalizeSort = (group: FieldGroup) => group.fields.forEach((field, index) => (field.sort = index + 1));
 const changeFieldType = (field: InsuredField) => {
   if (!supportsOptions(field)) field.options = [];
@@ -205,17 +216,7 @@ const changeBusinessRules = (field: InsuredField) => {
   previousBusinessRuleValues.set(field, [...field.businessRules]);
 };
 const addField = (group: FieldGroup) => {
-  group.fields.push({
-    id: createId(),
-    name: '',
-    type: '文本',
-    placeholder: '',
-    required: false,
-    sort: group.fields.length + 1,
-    options: [],
-    formatRule: '无',
-    businessRules: []
-  });
+  group.fields.push(createField(group.fields.length + 1));
 };
 const removeField = (groupIndex: number, fieldIndex: number) => {
   const group = groups.value[groupIndex];
@@ -259,7 +260,7 @@ const removeGroup = async (index: number) => {
   }
 };
 const addGroup = () => {
-  groups.value.push({ id: createId(), name: `新分类${groups.value.length + 1}`, fields: [] });
+  groups.value.push({ id: createId(), name: `新分类${groups.value.length + 1}`, fields: [createField(1)] });
 };
 const openOptionDialog = (field: InsuredField) => {
   optionField.value = field;

@@ -2,7 +2,6 @@
   <section class="introduction-config">
     <header class="intro-heading">
       <div>
-        <div class="intro-eyebrow">销售端页面配置</div>
         <h2>产品介绍页</h2>
         <p>配置家长进入投保流程前看到的介绍内容、主视觉媒体和客服信息。</p>
       </div>
@@ -354,13 +353,6 @@ const removeImage = (index: number) => {
   color: #7b8794;
   font-size: 13px;
   line-height: 1.6;
-}
-
-.intro-eyebrow {
-  color: #1696d2;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
 }
 
 .intro-form-column {

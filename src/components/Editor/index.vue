@@ -28,7 +28,7 @@
       <i ref="videoUploadRef"></i>
     </el-upload>
   </div>
-  <div class="editor">
+  <div class="editor" :class="{ 'editor--auto-height': props.autoHeight }">
     <quill-editor
       ref="quillEditorRef"
       v-model:content="content"
@@ -79,6 +79,8 @@ const props = defineProps({
   minHeight: propTypes.number.def(400),
   /* 只读 */
   readOnly: propTypes.bool.def(false),
+  /* 内容较少时自动收缩，较多时随内容增高 */
+  autoHeight: propTypes.bool.def(false),
   /* 上传文件大小限制(MB) */
   fileSize: propTypes.number.def(5),
   /* 类型（base64格式、url格式） */
@@ -146,7 +148,9 @@ const styles = computed(() => {
   if (props.minHeight) {
     style.minHeight = `${props.minHeight}px`;
   }
-  if (props.height) {
+  if (props.autoHeight) {
+    style.height = 'auto';
+  } else if (props.height) {
     style.height = `${props.height}px`;
   }
   return style;
@@ -247,6 +251,13 @@ const handleUploadError = (err: any) => {
 .ql-toolbar {
   white-space: pre-wrap !important;
   line-height: normal !important;
+}
+.editor--auto-height .ql-container {
+  height: auto !important;
+}
+.editor--auto-height .ql-editor {
+  height: auto;
+  overflow-y: hidden;
 }
 .ql-editor video {
   display: block;

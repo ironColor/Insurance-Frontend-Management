@@ -24,7 +24,6 @@
       </el-form>
       <el-table v-loading="loading" :data="list" class="product-table">
         <el-table-column type="index" label="序号" width="64" align="center" />
-        <el-table-column prop="owner" label="业务归属" width="140" />
         <el-table-column prop="productCode" label="产品编码" min-width="170" show-overflow-tooltip />
         <el-table-column prop="productName" label="产品名称" min-width="290" show-overflow-tooltip />
         <el-table-column prop="businessUnit" label="业务归属" width="150" />

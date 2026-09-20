@@ -175,6 +175,7 @@ const orders: OrderVO[] = [
   {
     orderId: 11,
     ...baseProduct,
+    payStatus: 'refunded',
     orderNo: '5082616391526163915271*19202608268',
     merchantOrderNo: '5082616391526163915271',
     paymentNo: '19202608268',
@@ -207,10 +208,11 @@ const filterOrders = (query: OrderQuery) => {
 const getStatistics = (productCode: string): OrderStatistics => {
   const scoped = productCode ? orders.filter((order) => order.productCode === productCode) : orders;
   const paidOrders = scoped.filter((order) => order.payStatus === 'paid');
+  const unpaidOrders = scoped.filter((order) => order.payStatus === 'unpaid');
   return {
     total: scoped.length,
     paid: paidOrders.length,
-    unpaid: scoped.length - paidOrders.length,
+    unpaid: unpaidOrders.length,
     paidPremium: paidOrders.reduce((sum, order) => sum + order.totalAmount, 0)
   };
 };

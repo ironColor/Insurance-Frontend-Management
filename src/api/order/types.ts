@@ -1,4 +1,4 @@
-export type OrderPayStatus = 'paid' | 'unpaid';
+export type OrderPayStatus = 'paid' | 'unpaid' | 'refunded';
 
 export interface OrderVO {
   orderId: number;

@@ -379,9 +379,14 @@ onMounted(getList);
 }
 
 .logo-field {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 32px;
+  width: 100%;
+  padding: 12px 32px;
+  border-radius: 10px;
+  background: var(--el-fill-color-extra-light);
 }
 
 .logo-preview-box {
@@ -392,6 +397,7 @@ onMounted(getList);
   width: 90px;
   height: 90px;
   flex: 0 0 90px;
+  justify-self: center;
   border: 1px dashed var(--el-border-color);
   border-radius: 10px;
   background: var(--el-fill-color-lighter);
@@ -412,14 +418,25 @@ onMounted(getList);
 .logo-upload-block {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  padding-top: 8px;
+  align-items: center;
+  justify-self: stretch;
+  padding: 0;
+  text-align: center;
 
   :deep(.el-button) {
+    min-width: 132px;
     height: 42px;
     padding: 0 20px;
     border-radius: 8px;
     font-size: 16px;
+  }
+}
+
+@media (max-width: 540px) {
+  .logo-field {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px;
   }
 }
 
