@@ -88,7 +88,6 @@
           <el-table-column type="index" label="序号" width="62" align="center">
             <template #default="scope">{{ (query.pageNum - 1) * query.pageSize + scope.$index + 1 }}</template>
           </el-table-column>
-          <el-table-column prop="productTitle" label="产品标题" min-width="210" show-overflow-tooltip />
           <el-table-column prop="businessUnit" label="业务归属" width="130" show-overflow-tooltip />
           <el-table-column prop="productCode" label="产品编码" width="130" show-overflow-tooltip />
           <el-table-column prop="productName" label="产品名称" width="150" show-overflow-tooltip />
@@ -107,7 +106,6 @@
           <el-table-column prop="parentName" label="家长姓名" width="100" />
           <el-table-column prop="parentIdCard" label="家长身份证号" width="190" show-overflow-tooltip />
           <el-table-column prop="phone" label="联系电话" width="130" />
-          <el-table-column prop="totalAmount" label="订单总金额" width="110" align="right" />
           <el-table-column prop="createTime" label="创建时间" width="160" />
           <el-table-column label="支付状态" width="100" align="center">
             <template #default="scope"
@@ -173,10 +171,6 @@
         <section class="detail-section">
           <h3>产品信息</h3>
           <dl class="detail-grid">
-            <div class="detail-grid__wide">
-              <dt>产品标题</dt>
-              <dd>{{ selectedOrder.productTitle }}</dd>
-            </div>
             <div>
               <dt>业务归属</dt>
               <dd>{{ selectedOrder.businessUnit }}</dd>
@@ -192,10 +186,6 @@
             <div>
               <dt>保费</dt>
               <dd class="detail-money">{{ formatMoney(selectedOrder.premium) }} 元</dd>
-            </div>
-            <div>
-              <dt>订单总金额</dt>
-              <dd class="detail-money">{{ formatMoney(selectedOrder.totalAmount) }} 元</dd>
             </div>
           </dl>
         </section>
@@ -327,7 +317,6 @@ const handleExport = async () => {
   const rows = await listAllOrders(query);
   const headers = [
     '序号',
-    '产品标题',
     '业务归属',
     '产品编码',
     '产品名称',
@@ -342,14 +331,12 @@ const handleExport = async () => {
     '家长姓名',
     '家长身份证号',
     '联系电话',
-    '订单总金额',
     '创建时间',
     '支付状态',
     '支付时间'
   ];
   const body = rows.map((row, index) => [
     index + 1,
-    row.productTitle,
     row.businessUnit,
     row.productCode,
     row.productName,
@@ -364,7 +351,6 @@ const handleExport = async () => {
     row.parentName,
     row.parentIdCard,
     row.phone,
-    row.totalAmount,
     row.createTime,
     getStatusText(row.payStatus),
     row.payTime
