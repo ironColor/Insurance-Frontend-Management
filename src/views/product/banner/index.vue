@@ -108,7 +108,7 @@
             </div>
             <div class="banner-upload-block">
               <el-upload accept=".jpg,.jpeg,.png" :auto-upload="false" :show-file-list="false" :on-change="handleBannerChange">
-                <el-button>上传图片</el-button>
+                <el-button :loading="uploading">上传图片</el-button>
               </el-upload>
               <div class="upload-tip">仅支持 JPG / PNG 格式，大小不超过 2MB</div>
               <div v-if="imageError" class="upload-error">{{ imageError }}</div>
@@ -128,7 +128,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="cancel">取消</el-button>
-          <el-button :loading="buttonLoading" type="primary" @click="submitForm">保存</el-button>
+          <el-button :loading="buttonLoading" :disabled="uploading" type="primary" @click="submitForm">保存</el-button>
         </div>
       </template>
     </el-dialog>
@@ -138,6 +138,7 @@
 <script setup name="BannerManagement" lang="ts">
 import { addBanner, changeBannerStatus, deleteBanner, getBanner, listBanner, listEnabledBannerProducts, updateBanner } from '@/api/product/banner';
 import { BannerForm, BannerProductOption, BannerQuery, BannerVO } from '@/api/product/banner/types';
+import { uploadProductImage } from '@/api/product/uploadImage';
 import { Picture } from '@element-plus/icons-vue';
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
@@ -146,6 +147,8 @@ const bannerList = ref<BannerVO[]>([]);
 const productOptions = ref<BannerProductOption[]>([]);
 const loading = ref(false);
 const buttonLoading = ref(false);
+const uploading = ref(false);
+let uploadSequence = 0;
 const total = ref(0);
 const imageError = ref('');
 const queryFormRef = ref<ElFormInstance>();
@@ -220,6 +223,8 @@ const resetQuery = () => {
 };
 
 const resetForm = () => {
+  uploadSequence++;
+  uploading.value = false;
   form.value = { ...initFormData };
   imageError.value = '';
   bannerFormRef.value?.resetFields();
@@ -245,7 +250,7 @@ const handleUpdate = async (row: BannerVO) => {
   dialog.visible = true;
 };
 
-const handleBannerChange = (uploadFile: UploadFile) => {
+const handleBannerChange = async (uploadFile: UploadFile) => {
   const file = uploadFile.raw;
   imageError.value = '';
   if (!file) return;
@@ -257,12 +262,18 @@ const handleBannerChange = (uploadFile: UploadFile) => {
     imageError.value = '图片大小超出限制，请上传不超过 2MB 的图片';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    form.value.image = String(reader.result || '');
+  const sequence = ++uploadSequence;
+  uploading.value = true;
+  try {
+    const url = await uploadProductImage(file);
+    if (sequence !== uploadSequence) return;
+    form.value.image = url;
     bannerFormRef.value?.clearValidate('image');
-  };
-  reader.readAsDataURL(file);
+  } catch {
+    if (sequence === uploadSequence) imageError.value = '上传失败，请重试';
+  } finally {
+    if (sequence === uploadSequence) uploading.value = false;
+  }
 };
 
 const cancel = () => {
@@ -271,7 +282,7 @@ const cancel = () => {
 
 const submitForm = () => {
   bannerFormRef.value?.validate(async (valid: boolean) => {
-    if (!valid || imageError.value) return;
+    if (!valid || imageError.value || uploading.value) return;
     buttonLoading.value = true;
     try {
       if (form.value.bannerId) {
@@ -289,8 +300,12 @@ const submitForm = () => {
 };
 
 const handleStatusChange = async (row: BannerVO) => {
-  await changeBannerStatus(row.bannerId, row.status);
-  proxy?.$modal.msgSuccess(`已${row.status === '0' ? '启用' : '停用'}该 Banner 图`);
+  try {
+    await changeBannerStatus(row.bannerId, row.status);
+    proxy?.$modal.msgSuccess(`已${row.status === '0' ? '启用' : '停用'}该 Banner 图`);
+  } catch {
+    row.status = row.status === '0' ? '1' : '0';
+  }
 };
 
 const handleDelete = async (row: BannerVO) => {
@@ -304,8 +319,7 @@ const handleDelete = async (row: BannerVO) => {
 };
 
 onMounted(async () => {
-  await getProductOptions();
-  await getList();
+  await Promise.all([getProductOptions(), getList()]);
 });
 </script>
 

@@ -103,7 +103,7 @@
             </div>
             <div class="logo-upload-block">
               <el-upload accept=".jpg,.jpeg,.png" :auto-upload="false" :show-file-list="false" :on-change="handleLogoChange">
-                <el-button>上传 Logo</el-button>
+                <el-button :loading="uploading">上传 Logo</el-button>
               </el-upload>
               <div class="upload-tip">支持 JPG / PNG，建议 1:1 图片</div>
               <div v-if="logoError" class="upload-error">{{ logoError }}</div>
@@ -123,7 +123,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="cancel">取消</el-button>
-          <el-button :loading="buttonLoading" type="primary" @click="submitForm">保存</el-button>
+          <el-button :loading="buttonLoading" :disabled="uploading" type="primary" @click="submitForm">保存</el-button>
         </div>
       </template>
     </el-dialog>
@@ -140,12 +140,15 @@ import {
   updateInsuranceCompany
 } from '@/api/product/insuranceCompany';
 import { InsuranceCompanyForm, InsuranceCompanyQuery, InsuranceCompanyVO } from '@/api/product/insuranceCompany/types';
+import { uploadProductImage } from '@/api/product/uploadImage';
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
 
 const companyList = ref<InsuranceCompanyVO[]>([]);
 const loading = ref(false);
 const buttonLoading = ref(false);
+const uploading = ref(false);
+let uploadSequence = 0;
 const total = ref(0);
 const logoError = ref('');
 const queryFormRef = ref<ElFormInstance>();
@@ -215,6 +218,8 @@ const resetQuery = () => {
 };
 
 const resetForm = () => {
+  uploadSequence++;
+  uploading.value = false;
   form.value = { ...initFormData };
   logoError.value = '';
   companyFormRef.value?.resetFields();
@@ -234,7 +239,7 @@ const handleUpdate = async (row: InsuranceCompanyVO) => {
   dialog.visible = true;
 };
 
-const handleLogoChange = (uploadFile: UploadFile) => {
+const handleLogoChange = async (uploadFile: UploadFile) => {
   const file = uploadFile.raw;
   logoError.value = '';
   if (!file) return;
@@ -246,12 +251,18 @@ const handleLogoChange = (uploadFile: UploadFile) => {
     logoError.value = '图片大小超出限制，请上传不超过 2MB 的图片';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    form.value.logo = String(reader.result || '');
+  const sequence = ++uploadSequence;
+  uploading.value = true;
+  try {
+    const url = await uploadProductImage(file);
+    if (sequence !== uploadSequence) return;
+    form.value.logo = url;
     companyFormRef.value?.clearValidate('logo');
-  };
-  reader.readAsDataURL(file);
+  } catch {
+    if (sequence === uploadSequence) logoError.value = '上传失败，请重试';
+  } finally {
+    if (sequence === uploadSequence) uploading.value = false;
+  }
 };
 
 const cancel = () => {
@@ -260,7 +271,7 @@ const cancel = () => {
 
 const submitForm = () => {
   companyFormRef.value?.validate(async (valid: boolean) => {
-    if (!valid || logoError.value) return;
+    if (!valid || logoError.value || uploading.value) return;
     buttonLoading.value = true;
     try {
       if (form.value.companyId) {
@@ -278,8 +289,12 @@ const submitForm = () => {
 };
 
 const handleStatusChange = async (row: InsuranceCompanyVO) => {
-  await changeInsuranceCompanyStatus(row.companyId, row.status);
-  proxy?.$modal.msgSuccess(`已${row.status === '0' ? '启用' : '停用'}${row.companyName}`);
+  try {
+    await changeInsuranceCompanyStatus(row.companyId, row.status);
+    proxy?.$modal.msgSuccess(`已${row.status === '0' ? '启用' : '停用'}${row.companyName}`);
+  } catch {
+    row.status = row.status === '0' ? '1' : '0';
+  }
 };
 
 const handleDelete = async (row: InsuranceCompanyVO) => {
