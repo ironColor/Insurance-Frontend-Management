@@ -1,5 +1,5 @@
 export interface InsuranceCompanyVO {
-  companyId: number;
+  companyId: string | number;
   logo: string;
   companyName: string;
   website: string;
@@ -8,7 +8,7 @@ export interface InsuranceCompanyVO {
 }
 
 export interface InsuranceCompanyForm {
-  companyId?: number;
+  companyId?: string | number;
   logo: string;
   companyName: string;
   website: string;

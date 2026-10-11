@@ -1,400 +1,125 @@
-import type { ProductConfig, ProductQuery, ProductVO } from './types';
+import request from '@/utils/request';
+import { getDicts } from '@/api/system/dict/data';
+import { listDept } from '@/api/system/dept';
+import type { DeptVO } from '@/api/system/dept/types';
+import type { ApiDoc, ApiProduct, ProductId } from './apiTypes';
+import type { ProductConfig, ProductConfigSection, ProductDictionaries, ProductQuery } from './types';
+import { createProductConfig, toAgreement, toProductConfig, toProductRequest, toProductRow } from './mapper';
 
-const rows: ProductVO[] = [
-  {
-    productId: 1,
-    owner: '贵州本部',
-    productCode: '福泉26秋季001',
-    productName: '福泉高级实验中学26年秋季学平险（100元/年）',
-    businessUnit: '重庆本部',
-    createTime: '2026-08-22',
-    premium: 12000,
-    orderCount: 120,
-    status: '0'
-  },
-  {
-    productId: 2,
-    owner: '保定财险事业部',
-    productCode: 'bwyl',
-    productName: '百万医疗保险',
-    businessUnit: '保定本部',
-    createTime: '2026-08-21',
-    premium: 0,
-    orderCount: 0,
-    status: '0'
-  },
-  {
-    productId: 3,
-    owner: '贵州本部',
-    productCode: '平塘秋季010',
-    productName: '平塘民中高一年级31、32班（26年秋季）',
-    businessUnit: '保险财险事业部',
-    createTime: '2026-08-16',
-    premium: 8500,
-    orderCount: 170,
-    status: '0'
-  },
-  {
-    productId: 4,
-    owner: '贵州本部',
-    productCode: '平塘秋季009',
-    productName: '塘边中学（26年秋季）',
-    businessUnit: '山西',
-    createTime: '2026-08-16',
-    premium: 6200,
-    orderCount: 124,
-    status: '0'
-  },
-  {
-    productId: 5,
-    owner: '贵州本部',
-    productCode: '平塘秋季008',
-    productName: '克度中学（26年秋季）',
-    businessUnit: '济南',
-    createTime: '2026-08-16',
-    premium: 4800,
-    orderCount: 96,
-    status: '0'
-  },
-  {
-    productId: 6,
-    owner: '保定',
-    productCode: 'TEST-202608120002-BDXYX',
-    productName: 'TEST-保定学幼险-202608120002',
-    businessUnit: '保定',
-    createTime: '2026-08-12',
-    premium: 0,
-    orderCount: 0,
-    status: '0'
-  },
-  {
-    productId: 7,
-    owner: '保定',
-    productCode: 'TEST-20260812-BDXYX',
-    productName: 'TEST-保定学幼险-202608',
-    businessUnit: '重庆本部',
-    createTime: '2026-08-12',
-    premium: 0,
-    orderCount: 0,
-    status: '0'
-  },
-  {
-    productId: 8,
-    owner: '重庆本部',
-    productCode: 'njyge',
-    productName: '南江',
-    businessUnit: '四川本部',
-    createTime: '2026-08-11',
-    premium: 2100,
-    orderCount: 42,
-    status: '0'
-  },
-  {
-    productId: 9,
-    owner: '重庆本部',
-    productCode: 'chongqing001',
-    productName: '巴中市职业技术学院（26秋）',
-    businessUnit: '四川本部',
-    createTime: '2026-08-10',
-    premium: 1400,
-    orderCount: 14,
-    status: '0'
-  },
-  {
-    productId: 10,
-    owner: '保定财险事业部',
-    productCode: 'BDCCXYD HQZ20260805',
-    productName: '河北保定长城学院运动会秋招',
-    businessUnit: '保定财险事业部',
-    createTime: '2026-08-05',
-    premium: 0.01,
-    orderCount: 1,
-    status: '0'
-  }
-];
+const productUrl = '/product/product';
 
-const delay = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), 180));
 export const listProducts = async (query: ProductQuery) => {
-  const filtered = rows.filter(
-    (x) =>
-      x.status === query.status &&
-      (!query.productCode || x.productCode.includes(query.productCode)) &&
-      (!query.productName || x.productName.includes(query.productName)) &&
-      (!query.businessUnit || x.businessUnit === query.businessUnit)
-  );
-  const start = (query.pageNum - 1) * query.pageSize;
-  return delay({ rows: filtered.slice(start, start + query.pageSize).map((x) => ({ ...x })), total: filtered.length });
-};
-export const changeProductStatus = async (id: number, status: '0' | '1') => {
-  const item = rows.find((x) => x.productId === id);
-  if (item) item.status = status;
-  return delay(undefined);
+  const response = await request<ApiProduct[]>({
+    url: `${productUrl}/list`,
+    method: 'get',
+    params: {
+      pageNum: query.pageNum,
+      pageSize: query.pageSize,
+      productCode: query.productCode || undefined,
+      productName: query.productName || undefined,
+      businessDeptId: query.businessDeptId,
+      businessDeptName: query.businessUnit || undefined,
+      status: query.status
+    }
+  });
+  return { rows: (response.rows || []).map(toProductRow), total: response.total || 0 };
 };
 
-const defaultConfig = (id?: number): ProductConfig => ({
-  productId: id,
-  hasOrders: false,
-  name: id ? '学平险保障计划' : '',
-  code: id ? '福泉26秋季001' : '',
-  businessUnit: id ? '贵州本部' : '',
-  subtitle: '针对幼儿、学生设计，为孩子提供综合险保障。',
-  products: id
-    ? [
-        { name: '学平险', type: '主险', companyId: 2, required: true, plans: [{ name: '无忧版', premium: 100, description: '', protections: [] }] },
-        { name: '监护人责任险', type: '附加险', companyId: 2, required: false, plans: [] }
-      ]
-    : [],
-  introduction: '<h2>学生平安综合保险</h2><p>为学生提供安心、全面的成长保障。</p>',
-  introductionMediaType: 'video',
-  introductionVideoUrl: '',
-  introductionVideoName: '',
-  introductionVideoPoster: '',
-  introductionVideoPosterName: '',
-  introductionVideoAutoplay: true,
-  introductionVideoMuted: true,
-  introductionCarouselImages: [],
-  introductionCarouselInterval: 3,
-  customerServicePhone: '',
-  customerServiceHours: '',
-  customerServiceRemark: '',
-  fieldGroups: [
-    {
-      id: 'group-applicant',
-      name: '投保人信息',
-      fields: [
-        {
-          id: 'applicant-name',
-          name: '投保人姓名',
-          type: '文本',
-          placeholder: '请输入投保人姓名',
-          required: true,
-          sort: 1,
-          options: [],
-          formatRule: '无',
-          businessRules: []
-        },
-        {
-          id: 'applicant-phone',
-          name: '联系电话',
-          type: '手机',
-          placeholder: '请输入联系电话',
-          required: true,
-          sort: 2,
-          options: [],
-          formatRule: '手机号',
-          businessRules: []
-        }
-      ]
-    },
-    {
-      id: 'group-student',
-      name: '学生信息',
-      fields: [
-        {
-          id: 'student-name',
-          name: '学生姓名',
-          type: '文本',
-          placeholder: '请输入学生姓名',
-          required: true,
-          sort: 1,
-          options: [],
-          formatRule: '无',
-          businessRules: []
-        },
-        {
-          id: 'student-id-type',
-          name: '证件类型',
-          type: '单选',
-          placeholder: '请选择证件类型',
-          required: true,
-          sort: 2,
-          options: ['居民身份证', '护照', '其他证件'],
-          formatRule: '无',
-          businessRules: []
-        },
-        {
-          id: 'student-id-number',
-          name: '证件号码',
-          type: '身份证',
-          placeholder: '请输入证件号码',
-          required: true,
-          sort: 3,
-          options: [],
-          formatRule: '身份证号',
-          businessRules: ['已支付证件号校验', '已投保证件号校验']
-        },
-        {
-          id: 'student-school',
-          name: '学校名称',
-          type: '文本',
-          placeholder: '请输入学校名称',
-          required: true,
-          sort: 4,
-          options: [],
-          formatRule: '无',
-          businessRules: []
-        },
-        {
-          id: 'student-grade',
-          name: '年级',
-          type: '单选',
-          placeholder: '请选择年级',
-          required: true,
-          sort: 5,
-          options: ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'],
-          formatRule: '无',
-          businessRules: []
-        },
-        {
-          id: 'student-class',
-          name: '班级',
-          type: '单选',
-          placeholder: '请选择班级',
-          required: true,
-          sort: 6,
-          options: ['1班', '2班', '3班', '4班'],
-          formatRule: '无',
-          businessRules: []
-        },
-        {
-          id: 'student-birthday',
-          name: '出生日期',
-          type: '日期',
-          placeholder: '请选择出生日期',
-          required: false,
-          sort: 7,
-          options: [],
-          formatRule: '无',
-          businessRules: []
-        },
-        {
-          id: 'student-hobby',
-          name: '兴趣爱好',
-          type: '多选',
-          placeholder: '请选择兴趣爱好（可多选）',
-          required: false,
-          sort: 8,
-          options: ['阅读', '运动', '音乐', '绘画'],
-          formatRule: '无',
-          businessRules: []
-        }
-      ]
-    }
-  ],
-  forceReadRule: {
-    requireScroll: true,
-    requireDuration: true,
-    seconds: 10
-  },
-  forceRead: [
-    {
-      title: '重要提示',
-      content:
-        '<p>1. 本产品由诚安达保险销售服务股份有限公司销售，承保公司以具体方案为准。</p><p>2. 投保前请仔细阅读保险条款，特别是责任免除部分。</p><p>3. 本产品保障期间为一年，到期后可续保。</p><p>4. 如有疑问，请拨打客服电话咨询。</p>',
-      seconds: 0,
-      enabled: true,
-      requireScroll: false,
-      requireDuration: false,
-      sort: 1,
-      important: true
-    },
-    {
-      title: '投保须知',
-      content: '请仔细阅读保障责任、责任免除及理赔说明。',
-      seconds: 10,
-      enabled: true,
-      requireScroll: true,
-      requireDuration: true,
-      sort: 2,
-      important: false
-    }
-  ],
-  agreements: [
-    {
-      id: 1,
-      configType: 'productFile',
-      code: 'AGR-2024-001',
-      name: '个人意外伤害保险投保须知',
-      agreementType: '投保须知',
-      contentType: 'text',
-      content: '<h3>个人意外伤害保险投保须知</h3><p>投保前请仔细阅读产品保障责任、责任免除及理赔说明。</p>',
-      enabled: true,
-      sort: 1,
-      remark: '默认投保须知，适用于所有意外险产品',
-      updatedAt: '2024-01-15 10:30:00'
-    },
-    {
-      id: 2,
-      configType: 'productFile',
-      name: '健康保险产品条款',
-      agreementType: '产品条款',
-      contentType: 'attachment',
-      fileName: '健康保险产品条款.pdf',
-      enabled: true,
-      sort: 2,
-      updatedAt: '2024-02-20 14:15:00'
-    },
-    {
-      id: 3,
-      configType: 'agreement',
-      name: '用户服务协议',
-      agreementType: '用户服务协议',
-      version: 'V2.1.0',
-      content: '<h2>用户服务协议</h2><p>欢迎使用本平台服务。请在使用服务前认真阅读并理解本协议内容。</p>',
-      enabled: true,
-      updatedAt: '2024-06-15 10:30:00'
-    },
-    {
-      id: 4,
-      configType: 'agreement',
-      name: '隐私政策',
-      agreementType: '隐私政策',
-      version: 'V1.5.2',
-      content: '<h2>隐私政策</h2><p>我们重视并保护您的个人信息与隐私安全。</p>',
-      enabled: true,
-      updatedAt: '2024-05-20 14:15:00'
-    },
-    {
-      id: 5,
-      configType: 'productFile',
-      name: '在线服务协议',
-      agreementType: '服务协议',
-      contentType: 'link',
-      link: 'https://example.com/service-agreement',
-      enabled: false,
-      sort: 3,
-      updatedAt: '2024-03-10 09:00:00'
-    }
-  ]
-});
-const configs = new Map<number, ProductConfig>();
-export const getProductConfig = async (id?: number) => {
-  if (!id) return delay(defaultConfig());
-  const row = rows.find((item) => item.productId === id);
-  const savedConfig = configs.get(id);
-  const config = savedConfig ? structuredClone(savedConfig) : defaultConfig(id);
-  config.hasOrders = Boolean(row?.orderCount);
-  if (row && !savedConfig) {
-    config.name = row.productName;
-    config.code = row.productCode;
-    config.businessUnit = row.businessUnit;
-  }
-  return delay(config);
+export const changeProductStatus = (productId: ProductId, status: '0' | '1') =>
+  request({ url: `${productUrl}/editStatus`, method: 'put', data: { productId, status } });
+
+export const listProductDocuments = async (productId: ProductId) => {
+  const response = await request<ApiDoc[]>({ url: '/product/doc/docList', method: 'get', params: { productId } });
+  return (response.data || []).filter((doc) => doc.classify === '2' || doc.classify === '3').map(toAgreement);
 };
-export const saveProductConfig = async (data: ProductConfig) => {
-  const id = data.productId || Math.max(...rows.map((x) => x.productId)) + 1;
-  configs.set(id, structuredClone({ ...data, productId: id }));
-  if (!data.productId)
-    rows.unshift({
-      productId: id,
-      owner: data.businessUnit,
-      productCode: data.code,
-      productName: data.name,
-      businessUnit: data.businessUnit,
-      createTime: new Date().toISOString().slice(0, 10),
-      premium: 0,
-      orderCount: 0,
-      status: '0'
+
+export const getProductDocument = async (docId: ProductId) => {
+  const response = await request<ApiDoc>({ url: `/product/doc/${docId}`, method: 'get' });
+  return toAgreement(response.data);
+};
+
+export const saveProductDocument = (doc: ApiDoc) => request({ url: '/product/doc', method: doc.docId == null ? 'post' : 'put', data: doc });
+
+export const deleteProductDocument = (docId: ProductId) => request({ url: `/product/doc/${docId}`, method: 'delete' });
+
+export const getProductConfig = async (id?: ProductId): Promise<ProductConfig> => {
+  if (id == null) return createProductConfig();
+  const response = await request<ApiProduct>({ url: `${productUrl}/${id}`, method: 'get' });
+  const product = response.data;
+  // 当前详情接口不返回编辑状态，分页接口提供 isEdit，作为后端编辑限制的依据。
+  if (product.isEdit == null) {
+    const summary = await request<ApiProduct[]>({
+      url: `${productUrl}/list`,
+      method: 'get',
+      params: { productId: id, productCode: product.productCode, pageNum: 1, pageSize: 100 }
     });
-  return delay(id);
+    const row = summary.rows?.find((item) => String(item.productId) === String(id));
+    if (!row || row.isEdit == null) throw new Error('接口未返回产品编辑状态，无法确认当前配置是否允许修改');
+    product.isEdit = row.isEdit;
+    product.orderNum = row.orderNum;
+  }
+  return toProductConfig(product);
+};
+
+/** 临时保存提交整个配置；普通保存提交当前页签，新增配置由后端返回主键。 */
+export const saveProductConfig = async (config: ProductConfig, section: ProductConfigSection | 'all' = 'all'): Promise<ProductId> => {
+  const data = toProductRequest(config);
+  if (config.productId == null) {
+    const response = await request<ApiProduct>({ url: section === 'basic' ? productUrl : `${productUrl}/addAll`, method: 'post', data });
+    const productId = response.data?.productId;
+    if (productId == null) throw new Error('保存接口未返回产品ID，请检查后端响应');
+    return productId;
+  }
+  const sectionPaths: Record<ProductConfigSection, string> = {
+    basic: productUrl,
+    plan: `${productUrl}/${config.productId}/plan`,
+    intro: `${productUrl}/${config.productId}/media`,
+    fields: `${productUrl}/${config.productId}/block`,
+    read: `${productUrl}/${config.productId}/forceDoc`,
+    agreement: `${productUrl}/${config.productId}/doc`
+  };
+  await request({ url: section === 'all' ? `${productUrl}/editAll` : sectionPaths[section], method: 'put', data });
+  return config.productId;
+};
+
+export const getProductQrCode = async (productId: ProductId): Promise<Blob> => {
+  const blob = await request<never, Blob>({
+    url: `${productUrl}/${productId}/qrcode`,
+    method: 'post',
+    data: {
+      productId,
+      page: 'pages/index/index',
+      params: { productId: String(productId) },
+      encodeMode: 'KV',
+      width: 430
+    },
+    responseType: 'blob'
+  });
+  if (blob.type.includes('json') || blob.type.startsWith('text/')) {
+    let message = '二维码生成失败';
+    const body = await blob.text();
+    try {
+      const response = JSON.parse(body);
+      message = response.msg || message;
+    } catch {
+      message = body.trim() || message;
+    }
+    throw new Error(message);
+  }
+  if (!blob.size) throw new Error('二维码接口返回了空图片');
+  return blob;
+};
+
+export const listBusinessDepartments = async (): Promise<DeptVO[]> => {
+  const response = await listDept();
+  return (response.data || []).filter((dept: DeptVO) => dept.status === '0');
+};
+
+export const getProductDictionaries = async (): Promise<ProductDictionaries> => {
+  const dictionaryNames = ['pro_field_type', 'pro_valid_type', 'pro_busi_valid_type', 'pro_agreement_type'];
+  const results = await Promise.all(dictionaryNames.map((name) => getDicts(name)));
+  const [fieldTypes, formatRules, businessRules, agreementTypes] = results.map((response) =>
+    (response.data || []).map((item) => ({ label: item.dictLabel, value: item.dictValue }))
+  );
+  return { fieldTypes, formatRules, businessRules, agreementTypes };
 };

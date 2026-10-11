@@ -41,7 +41,7 @@
           <el-table-column label="字段类型" width="115">
             <template #default="scope">
               <el-select v-model="scope.row.type" :disabled="disabled" @change="changeFieldType(scope.row)">
-                <el-option v-for="type in fieldTypes" :key="type" :label="type" :value="type" />
+                <el-option v-for="type in fieldTypes" :key="type.value" :label="type.label" :value="type.value" />
               </el-select>
             </template>
           </el-table-column>
@@ -62,7 +62,7 @@
           <el-table-column label="格式校验" width="118" align="center">
             <template #default="scope">
               <el-select v-model="scope.row.formatRule" :disabled="disabled" placeholder="请选择" clearable>
-                <el-option v-for="rule in formatRules" :key="rule" :label="rule" :value="rule" />
+                <el-option v-for="rule in formatRules" :key="rule.value" :label="rule.label" :value="rule.value" />
               </el-select>
             </template>
           </el-table-column>
@@ -170,49 +170,45 @@
 
 <script setup lang="ts">
 import { Bottom, Delete, InfoFilled, Plus, Top } from '@element-plus/icons-vue';
-import type { FieldGroup, InsuredField } from '@/api/product/productManagement/types';
+import type { FieldGroup, InsuredField, ProductDictionaries } from '@/api/product/productManagement/types';
 
-const props = defineProps<{ disabled?: boolean }>();
+const props = defineProps<{ disabled?: boolean; dictionaries: ProductDictionaries }>();
 const groups = defineModel<FieldGroup[]>({ required: true });
 
-const fieldTypes = ['文本', '日期', '单选', '多选', '身份证', '手机'];
-const formatRules = ['无', '手机号', '身份证号', '邮箱', '统一信用代码', '纯数字', '金额'];
-const businessRules = [
-  { label: '无', value: '无' },
-  { label: '已支付证件号校验（同一证件是否已支付）', value: '已支付证件号校验' },
-  { label: '已投保证件号校验（同一证件是否已有生效保障）', value: '已投保证件号校验' },
-  { label: '待支付订单校验（同一证件是否有未完成订单）', value: '待支付订单校验' },
-  { label: '年龄范围校验（证件号出生日期是否符合产品范围）', value: '年龄范围校验' }
-];
+const fieldTypes = computed(() => props.dictionaries.fieldTypes);
+const formatRules = computed(() => props.dictionaries.formatRules);
+const businessRules = computed(() => props.dictionaries.businessRules);
 const optionDialogVisible = ref(false);
 const optionDraft = ref<string[]>([]);
 const optionField = ref<InsuredField>();
 const previousBusinessRuleValues = new WeakMap<InsuredField, string[]>();
 
-const supportsOptions = (field: InsuredField) => ['单选', '多选'].includes(field.type);
+const supportsOptions = (field: InsuredField) => /单选|多选|下拉/.test(fieldTypes.value.find((item) => item.value === field.type)?.label || '');
 const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const createField = (sort: number): InsuredField => ({
   id: createId(),
   name: '',
-  type: '文本',
+  type: fieldTypes.value.find((item) => item.label === '文本')?.value || fieldTypes.value[0]?.value || '',
   placeholder: '',
   required: false,
   sort,
   options: [],
-  formatRule: '无',
+  formatRule: formatRules.value.find((item) => item.label === '无')?.value || '',
   businessRules: []
 });
 const normalizeSort = (group: FieldGroup) => group.fields.forEach((field, index) => (field.sort = index + 1));
 const changeFieldType = (field: InsuredField) => {
   if (!supportsOptions(field)) field.options = [];
-  if (field.type === '身份证') field.formatRule = '身份证号';
-  if (field.type === '手机') field.formatRule = '手机号';
+  const label = fieldTypes.value.find((item) => item.value === field.type)?.label;
+  if (label === '身份证') field.formatRule = formatRules.value.find((item) => item.label === '身份证号')?.value || '';
+  if (label === '手机') field.formatRule = formatRules.value.find((item) => item.label === '手机号')?.value || '';
 };
 const changeBusinessRules = (field: InsuredField) => {
   const values = field.businessRules || [];
   const previousValues = previousBusinessRuleValues.get(field) || [];
   const addedValue = values.find((value) => !previousValues.includes(value));
-  field.businessRules = addedValue === '无' ? ['无'] : values.filter((value) => value !== '无');
+  const noneValue = businessRules.value.find((item) => item.label === '无')?.value;
+  field.businessRules = noneValue && addedValue === noneValue ? [noneValue] : values.filter((value) => value !== noneValue);
   previousBusinessRuleValues.set(field, [...field.businessRules]);
 };
 const addField = (group: FieldGroup) => {
@@ -282,6 +278,10 @@ const saveOptions = () => {
     ElMessage.warning('选项值不能重复');
     return;
   }
+  if (values.some((value) => /[；;\n]/.test(value))) {
+    ElMessage.warning('单个选项值不能包含分号或换行');
+    return;
+  }
   if (optionField.value) optionField.value.options = values;
   optionDialogVisible.value = false;
 };
@@ -295,7 +295,7 @@ watch(
         field.id ||= createId();
         field.sort ||= index + 1;
         field.options ||= [];
-        field.formatRule ||= '无';
+        field.formatRule ||= formatRules.value.find((item) => item.label === '无')?.value || '';
         field.businessRules ||= [];
         previousBusinessRuleValues.set(field, [...field.businessRules]);
       });

@@ -4,7 +4,7 @@ interface UploadResponse {
   url: string;
 }
 
-export const uploadProductImage = async (file: File): Promise<string> => {
+export const uploadProductFile = async (file: File): Promise<string> => {
   const data = new FormData();
   data.append('file', file);
   const response = await request<UploadResponse>({
@@ -13,5 +13,9 @@ export const uploadProductImage = async (file: File): Promise<string> => {
     data,
     headers: { repeatSubmit: false }
   });
-  return response.data.url;
+  const url = response.data?.url;
+  if (!url || /^(blob:|data:)/i.test(url)) throw new Error('上传接口未返回有效的文件地址');
+  return url;
 };
+
+export const uploadProductImage = uploadProductFile;

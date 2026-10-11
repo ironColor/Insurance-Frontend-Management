@@ -1,5 +1,5 @@
 <template>
-  <section class="introduction-config">
+  <section v-loading="uploadCount > 0" class="introduction-config">
     <header class="intro-heading">
       <div>
         <h2>产品介绍页</h2>
@@ -111,8 +111,8 @@
                   <img :src="model.introductionVideoPoster" alt="视频封面预览" />
                 </div>
                 <div class="poster-copy">
-                  <b>视频封面 <span>选填</span></b>
-                  <small>视频未播放或加载失败时展示，建议 16:9</small>
+                  <b>产品缩略图 <span>选填</span></b>
+                  <small>用于产品缩略图，同时在此处预览为视频封面，建议 16:9</small>
                   <div class="poster-actions">
                     <el-upload accept="image/jpeg,image/png,image/webp" :auto-upload="false" :show-file-list="false" :on-change="handlePosterChange">
                       <el-button link type="primary">{{ model.introductionVideoPoster ? '更换封面' : '上传封面' }}</el-button>
@@ -120,10 +120,6 @@
                     <el-button v-if="model.introductionVideoPoster" link type="danger" @click="removePoster">移除</el-button>
                   </div>
                 </div>
-              </div>
-              <div class="switch-settings">
-                <label><span>进入页面自动播放</span><el-switch v-model="model.introductionVideoAutoplay" /></label>
-                <label><span>自动播放时静音</span><el-switch v-model="model.introductionVideoMuted" /></label>
               </div>
             </div>
           </div>
@@ -222,9 +218,23 @@
 <script setup lang="ts">
 import { ArrowDown, ArrowUp, Delete, Picture, Plus, UploadFilled, VideoCamera } from '@element-plus/icons-vue';
 import type { UploadFile } from 'element-plus';
+import { uploadProductFile } from '@/api/product/uploadImage';
 import type { IntroductionMediaType, ProductConfig } from '@/api/product/productManagement/types';
 
 const model = defineModel<ProductConfig>({ required: true });
+const emit = defineEmits<{ uploading: [value: boolean] }>();
+const uploadCount = ref(0);
+let videoSequence = 0;
+let posterSequence = 0;
+watch(uploadCount, (count) => emit('uploading', count > 0), { flush: 'sync' });
+const upload = async (file: File) => {
+  uploadCount.value += 1;
+  try {
+    return await uploadProductFile(file);
+  } finally {
+    uploadCount.value -= 1;
+  }
+};
 
 const introductionLength = computed(
   () =>
@@ -251,19 +261,7 @@ const validateImage = (file: File) => {
   return true;
 };
 
-const readImage = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-const revokeBlobUrl = (url: string) => {
-  if (url.startsWith('blob:')) URL.revokeObjectURL(url);
-};
-
-const handleVideoChange = (uploadFile: UploadFile) => {
+const handleVideoChange = async (uploadFile: UploadFile) => {
   const file = uploadFile.raw;
   if (!file) return;
   const supported = ['video/mp4', 'video/quicktime', 'video/webm'].includes(file.type) || /\.(mp4|mov|webm)$/i.test(file.name);
@@ -275,13 +273,19 @@ const handleVideoChange = (uploadFile: UploadFile) => {
     ElMessage.warning('视频文件不能超过 100MB');
     return;
   }
-  revokeBlobUrl(model.value.introductionVideoUrl);
-  model.value.introductionVideoUrl = URL.createObjectURL(file);
-  model.value.introductionVideoName = file.name;
+  const sequence = ++videoSequence;
+  try {
+    const url = await upload(file);
+    if (sequence !== videoSequence) return;
+    model.value.introductionVideoUrl = url;
+    model.value.introductionVideoName = file.name;
+  } catch {
+    /* 请求拦截器负责显示上传错误。 */
+  }
 };
 
 const removeVideo = () => {
-  revokeBlobUrl(model.value.introductionVideoUrl);
+  videoSequence += 1;
   model.value.introductionVideoUrl = '';
   model.value.introductionVideoName = '';
 };
@@ -289,11 +293,19 @@ const removeVideo = () => {
 const handlePosterChange = async (uploadFile: UploadFile) => {
   const file = uploadFile.raw;
   if (!file || !validateImage(file)) return;
-  model.value.introductionVideoPoster = await readImage(file);
-  model.value.introductionVideoPosterName = file.name;
+  const sequence = ++posterSequence;
+  try {
+    const url = await upload(file);
+    if (sequence !== posterSequence) return;
+    model.value.introductionVideoPoster = url;
+    model.value.introductionVideoPosterName = file.name;
+  } catch {
+    /* 请求拦截器负责显示上传错误。 */
+  }
 };
 
 const removePoster = () => {
+  posterSequence += 1;
   model.value.introductionVideoPoster = '';
   model.value.introductionVideoPosterName = '';
 };
@@ -305,11 +317,13 @@ const handleCarouselImageChange = async (uploadFile: UploadFile) => {
     ElMessage.warning('轮播图片最多上传 8 张');
     return;
   }
-  model.value.introductionCarouselImages.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: file.name,
-    url: await readImage(file)
-  });
+  try {
+    const url = await upload(file);
+    if (model.value.introductionCarouselImages.length >= 8) return;
+    model.value.introductionCarouselImages.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: file.name, url });
+  } catch {
+    /* 请求拦截器负责显示上传错误。 */
+  }
 };
 
 const moveImage = (index: number, step: number) => {

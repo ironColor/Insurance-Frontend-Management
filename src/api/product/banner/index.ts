@@ -5,7 +5,7 @@ interface BannerResponse {
   bannerId: number;
   bannerUrl?: string;
   linkUrl?: string;
-  productId?: number;
+  productId?: string | number;
   productName?: string;
   status?: '0' | '1';
 }
@@ -28,7 +28,7 @@ const toRequest = (data: BannerForm) => ({
 });
 
 export const listEnabledBannerProducts = async (): Promise<BannerProductOption[]> => {
-  const response = await request<BannerProductOption[]>({ url: '/product/productList', method: 'get', params: { status: '0' } });
+  const response = await request<BannerProductOption[]>({ url: '/product/product/productList', method: 'get', params: { status: '0' } });
   return response.data || [];
 };
 

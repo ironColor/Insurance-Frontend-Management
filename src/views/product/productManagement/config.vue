@@ -1,12 +1,17 @@
 <template>
-    <div class="config-page">
+    <div v-loading="loading || saving" class="config-page">
         <div class="config-shell">
             <header class="config-header">
                 <div>
                     <div class="config-title">产品配置 <el-tag v-if="isCopy" type="warning" effect="plain">复制新增</el-tag></div>
                     <div class="config-subtitle">配置共用基本信息、各产品方案及前端展示内容</div>
                 </div>
-                <el-button :loading="saving" @click="save(true)">临时保存</el-button>
+                <el-button
+                    :loading="saving"
+                    :disabled="loading || loadFailed || mediaUploading || agreementUploading || documentSaving"
+                    @click="save(true)"
+                    >临时保存</el-button
+                >
             </header>
 
             <nav class="config-nav">
@@ -15,6 +20,7 @@
                 </button>
             </nav>
 
+            <el-alert v-if="loadFailed" title="产品配置加载失败，请刷新后重试" type="error" :closable="false" show-icon />
             <main class="config-body">
                 <section v-show="activeTab === 'basic'" class="plan-content">
                     <el-alert
@@ -35,8 +41,13 @@
                                 ><el-input v-model="form.code" :disabled="hasOrders" placeholder="请输入产品编码"
                             /></el-form-item>
                             <el-form-item label="业务归属" required
-                                ><el-select v-model="form.businessUnit" :disabled="hasOrders" placeholder="请选择业务归属"
-                                    ><el-option v-for="x in units" :key="x" :label="x" :value="x" /></el-select
+                                ><el-select
+                                    v-model="form.businessDeptId"
+                                    :disabled="hasOrders"
+                                    placeholder="请选择业务归属"
+                                    filterable
+                                    @change="changeBusinessDepartment"
+                                    ><el-option v-for="x in units" :key="x.deptId" :label="x.deptName" :value="x.deptId" /></el-select
                             ></el-form-item>
                         </el-form>
                     </div>
@@ -86,6 +97,7 @@
                                     filterable
                                     :disabled="hasOrders"
                                     :loading="companyLoading"
+                                    @change="changeCompany"
                                     placeholder="请选择承保公司"
                                 >
                                     <el-option
@@ -149,11 +161,11 @@
                 </section>
 
                 <section v-show="activeTab === 'intro'" class="normal-section intro-section">
-                    <IntroductionConfig v-model="form" />
+                    <IntroductionConfig v-model="form" @uploading="mediaUploading = $event" />
                 </section>
 
                 <section v-show="activeTab === 'fields'" class="normal-section">
-                    <InsuredFieldsConfig v-model="form.fieldGroups" :disabled="hasOrders" />
+                    <InsuredFieldsConfig v-model="form.fieldGroups" :disabled="hasOrders" :dictionaries="dictionaries" />
                 </section>
 
                 <section v-show="activeTab === 'read'" class="normal-section">
@@ -169,26 +181,27 @@
                         <div class="read-rule-heading">
                             <div>
                                 <h3 id="read-rule-title">其他协议统一阅读规则</h3>
-                                <p>除首条重要提示外，下面所有协议统一使用此规则，新添加的协议也会自动继承。</p>
+                                <p>下面所有强制阅读文档统一使用此规则，新添加的文档也会自动继承。</p>
                             </div>
                             <el-tag type="primary" effect="light">统一设置</el-tag>
                         </div>
                         <div class="read-mode-group global-read-mode">
                             <el-checkbox
                                 v-model="form.forceReadRule.requireScroll"
+                                @change="syncForceReadRule"
                                 :disabled="form.forceReadRule.requireScroll && !form.forceReadRule.requireDuration"
+                                >强制滑到底部</el-checkbox
                             >
-                                强制滑到底部
-                            </el-checkbox>
                             <span class="duration-option">
                                 <el-checkbox
                                     v-model="form.forceReadRule.requireDuration"
+                                    @change="syncForceReadRule"
                                     :disabled="form.forceReadRule.requireDuration && !form.forceReadRule.requireScroll"
+                                    >阅读满</el-checkbox
                                 >
-                                    阅读满
-                                </el-checkbox>
                                 <el-input-number
                                     v-model="form.forceReadRule.seconds"
+                                    @change="syncForceReadRule"
                                     :min="1"
                                     :controls="false"
                                     :disabled="!form.forceReadRule.requireDuration"
@@ -212,7 +225,7 @@
                                     <span class="read-mode-static"><span class="read-mode-dot"></span>悬浮展示</span>
                                 </div>
                                 <div v-if="!x.important" class="read-card-actions">
-                                    <el-button link :disabled="i <= 1" @click="moveForceRead(i, -1)"
+                                    <el-button link :disabled="i === 0 || form.forceRead[i - 1]?.important" @click="moveForceRead(i, -1)"
                                         ><el-icon><ArrowUp /></el-icon>上移</el-button
                                     >
                                     <el-button link :disabled="i === form.forceRead.length - 1" @click="moveForceRead(i, 1)"
@@ -234,7 +247,7 @@
                             </el-form-item>
                             <div class="read-settings-grid">
                                 <el-form-item v-if="!x.important" label="排序" class="read-sort-item">
-                                    <el-input-number v-model="x.sort" :min="2" :controls="false" />
+                                    <el-input-number v-model="x.sort" :min="1" :controls="false" />
                                 </el-form-item>
                                 <el-form-item :label="x.important ? '是否展示' : '是否启用'">
                                     <div class="read-switch">
@@ -268,7 +281,7 @@
                             <el-option label="协议配置" value="agreement" />
                         </el-select>
                         <el-select v-model="agreementFilters.agreementType" clearable placeholder="全部协议类型">
-                            <el-option v-for="item in agreementTypeOptions" :key="item" :label="item" :value="item" />
+                            <el-option v-for="item in agreementTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
                         </el-select>
                         <div class="agreement-query-actions">
                             <el-button type="primary" @click="searchAgreements">查询</el-button>
@@ -292,7 +305,7 @@
                             <el-table-column prop="name" label="名称/标题" min-width="210" show-overflow-tooltip />
                             <el-table-column label="协议类型" width="120">
                                 <template #default="s"
-                                    ><el-tag type="info" effect="plain">{{ s.row.agreementType }}</el-tag></template
+                                    ><el-tag type="info" effect="plain">{{ agreementTypeLabel(s.row.agreementType) }}</el-tag></template
                                 >
                             </el-table-column>
                             <el-table-column label="版本号" width="90" align="center">
@@ -328,7 +341,7 @@
                         append-to-body
                         destroy-on-close
                     >
-                        <div class="agreement-dialog-body">
+                        <div v-loading="documentLoading" class="agreement-dialog-body">
                             <div class="config-type-grid">
                                 <button
                                     type="button"
@@ -399,7 +412,12 @@
                                     <div class="agreement-form-grid agreement-meta-grid">
                                         <el-form-item label="协议类型" required>
                                             <el-select v-model="agreementForm.agreementType" placeholder="请选择协议类型">
-                                                <el-option v-for="item in productAgreementTypes" :key="item" :label="item" :value="item" />
+                                                <el-option
+                                                    v-for="item in productAgreementTypes"
+                                                    :key="item.value"
+                                                    :label="item.label"
+                                                    :value="item.value"
+                                                />
                                             </el-select>
                                         </el-form-item>
                                         <el-form-item label="排序">
@@ -422,7 +440,12 @@
                                     <div class="agreement-form-grid formal-agreement-grid">
                                         <el-form-item label="协议类型" required>
                                             <el-select v-model="agreementForm.agreementType" placeholder="请选择协议类型">
-                                                <el-option v-for="item in formalAgreementTypes" :key="item" :label="item" :value="item" />
+                                                <el-option
+                                                    v-for="item in formalAgreementTypes"
+                                                    :key="item.value"
+                                                    :label="item.label"
+                                                    :value="item.value"
+                                                />
                                             </el-select>
                                         </el-form-item>
                                         <el-form-item label="协议标题" required>
@@ -449,7 +472,13 @@
 
                         <template #footer>
                             <el-button @click="agreementDialogVisible = false">取消</el-button>
-                            <el-button type="primary" @click="saveAgreementConfig">保存配置</el-button>
+                            <el-button
+                                type="primary"
+                                :disabled="agreementUploading || documentLoading"
+                                :loading="documentSaving"
+                                @click="saveAgreementConfig"
+                                >保存配置</el-button
+                            >
                         </template>
                     </el-dialog>
                 </section>
@@ -457,9 +486,13 @@
 
             <footer class="config-footer">
                 <el-button @click="router.push('/product/product')">取消</el-button>
-                <el-button type="primary" :loading="saving" @click="save(false)">{{
-                    ['basic', 'plan'].includes(activeTab) ? '保存全部配置' : '保存配置'
-                }}</el-button>
+                <el-button
+                    type="primary"
+                    :loading="saving"
+                    :disabled="loading || loadFailed || mediaUploading || agreementUploading || documentSaving"
+                    @click="save(false)"
+                    >{{ '保存配置' }}</el-button
+                >
             </footer>
         </div>
     </div>
@@ -469,16 +502,35 @@
 import { ArrowDown, ArrowUp, Close, Delete } from '@element-plus/icons-vue';
 import InsuredFieldsConfig from './components/InsuredFieldsConfig.vue';
 import IntroductionConfig from './components/IntroductionConfig.vue';
-import { listInsuranceCompany } from '@/api/product/insuranceCompany';
+import { listEnabledInsuranceCompanies } from '@/api/product/insuranceCompany';
 import type { InsuranceCompanyVO } from '@/api/product/insuranceCompany/types';
-import { getProductConfig, saveProductConfig } from '@/api/product/productManagement';
-import type { AgreementConfigItem, AgreementConfigType, ForceReadItem, ProductConfig } from '@/api/product/productManagement/types';
+import {
+    deleteProductDocument,
+    getProductConfig,
+    getProductDictionaries,
+    getProductDocument,
+    listBusinessDepartments,
+    listProductDocuments,
+    saveProductConfig,
+    saveProductDocument
+} from '@/api/product/productManagement';
+import { createProductConfig, toProductRequest } from '@/api/product/productManagement/mapper';
+import { uploadProductFile } from '@/api/product/uploadImage';
+import type { DeptVO } from '@/api/system/dept/types';
+import type {
+    AgreementConfigItem,
+    AgreementConfigType,
+    ForceReadItem,
+    ProductConfig,
+    ProductConfigSection,
+    ProductDictionaries
+} from '@/api/product/productManagement/types';
 import type { UploadFile } from 'element-plus';
 
 const route = useRoute();
 const router = useRouter();
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
-const tabs = [
+const tabs: { name: ProductConfigSection; label: string }[] = [
     { name: 'basic', label: '基础信息配置' },
     { name: 'plan', label: '产品配置' },
     { name: 'intro', label: '介绍页配置' },
@@ -486,30 +538,42 @@ const tabs = [
     { name: 'read', label: '强制阅读' },
     { name: 'agreement', label: '协议文件配置' }
 ];
-const units = ['贵州本部', '重庆本部', '保定本部', '四川本部'];
-const productAgreementTypes = ['投保须知', '产品条款', '服务协议', '隐私政策', '其他'];
-const formalAgreementTypes = ['用户服务协议', '隐私政策', '用户协议', '会员服务协议', '其他'];
-const agreementTypeOptions = [...new Set([...productAgreementTypes, ...formalAgreementTypes])];
+const units = ref<DeptVO[]>([]);
+const dictionaries = reactive<ProductDictionaries>({ fieldTypes: [], formatRules: [], businessRules: [], agreementTypes: [] });
+const productAgreementTypes = computed(() => dictionaries.agreementTypes);
+const formalAgreementTypes = productAgreementTypes;
+const agreementTypeOptions = productAgreementTypes;
+const agreementTypeLabel = (value: string) => dictionaries.agreementTypes.find((item) => item.value === value)?.label || value;
 const createEmptyAgreement = (): AgreementConfigItem => ({
     configType: 'productFile',
     code: '',
     name: '',
-    agreementType: '投保须知',
+    agreementType: dictionaries.agreementTypes[0]?.value || '',
     version: '',
     contentType: 'text',
     content: '',
     link: '',
     fileName: '',
+    filePath: '',
     enabled: true,
     sort: 1,
     remark: '',
     updatedAt: ''
 });
 const tabNames = tabs.map((item) => item.name);
-const activeTab = ref(tabNames.includes(String(route.query.tab)) ? String(route.query.tab) : 'basic');
+const activeTab = ref<ProductConfigSection>(
+    tabNames.includes(String(route.query.tab) as ProductConfigSection) ? (String(route.query.tab) as ProductConfigSection) : 'basic'
+);
 const productIndex = ref(0);
 const planIndex = ref(0);
 const saving = ref(false);
+const loading = ref(false);
+const loadFailed = ref(false);
+const mediaUploading = ref(false);
+const agreementUploading = ref(false);
+const documentSaving = ref(false);
+const documentLoading = ref(false);
+let agreementUploadSequence = 0;
 const companyLoading = ref(false);
 const companyOptions = ref<InsuranceCompanyVO[]>([]);
 const agreementFilters = reactive({ keyword: '', configType: '', agreementType: '' });
@@ -519,35 +583,15 @@ const agreementDialogTitle = ref('新增配置');
 const editingAgreementIndex = ref(-1);
 const agreementForm = reactive<AgreementConfigItem>(createEmptyAgreement());
 const isCopy = computed(() => Boolean(route.query.copy));
-const form = reactive<ProductConfig>({
-    hasOrders: false,
-    name: '',
-    code: '',
-    businessUnit: '',
-    subtitle: '',
-    products: [],
-    introduction: '',
-    introductionMediaType: 'video',
-    introductionVideoUrl: '',
-    introductionVideoName: '',
-    introductionVideoPoster: '',
-    introductionVideoPosterName: '',
-    introductionVideoAutoplay: true,
-    introductionVideoMuted: true,
-    introductionCarouselImages: [],
-    introductionCarouselInterval: 3,
-    customerServicePhone: '',
-    customerServiceHours: '',
-    customerServiceRemark: '',
-    fieldGroups: [],
-    forceReadRule: {
-        requireScroll: true,
-        requireDuration: true,
-        seconds: 10
-    },
-    forceRead: [],
-    agreements: []
-});
+const form = reactive<ProductConfig>(createProductConfig());
+const changeBusinessDepartment = () => {
+    form.businessUnit = units.value.find((dept) => dept.deptId === form.businessDeptId)?.deptName || '';
+};
+const changeCompany = () => {
+    if (currentProduct.value)
+        currentProduct.value.companyName =
+            companyOptions.value.find((company) => company.companyId === currentProduct.value.companyId)?.companyName || '';
+};
 const hasOrders = computed(() => form.hasOrders && !isCopy.value);
 const currentProduct = computed(() => form.products[productIndex.value]);
 const currentPlan = computed(() => currentProduct.value?.plans[planIndex.value]);
@@ -581,19 +625,36 @@ const resetAgreementFilters = () => {
 const selectAgreementConfigType = (type: AgreementConfigType) => {
     agreementForm.configType = type;
     if (type === 'productFile') {
-        agreementForm.agreementType = productAgreementTypes.includes(agreementForm.agreementType) ? agreementForm.agreementType : '投保须知';
+        agreementForm.agreementType = productAgreementTypes.value.some((item) => item.value === agreementForm.agreementType)
+            ? agreementForm.agreementType
+            : productAgreementTypes.value[0]?.value || '';
         agreementForm.contentType ||= 'text';
         agreementForm.sort ||= 1;
         return;
     }
-    agreementForm.agreementType = formalAgreementTypes.includes(agreementForm.agreementType) ? agreementForm.agreementType : '用户服务协议';
+    agreementForm.agreementType = formalAgreementTypes.value.some((item) => item.value === agreementForm.agreementType)
+        ? agreementForm.agreementType
+        : formalAgreementTypes.value[0]?.value || '';
 };
-const openAgreementDialog = (item?: AgreementConfigItem) => {
+const openAgreementDialog = async (item?: AgreementConfigItem) => {
+    if (loading.value || loadFailed.value || documentSaving.value) return;
+    agreementUploadSequence += 1;
+    agreementUploading.value = false;
     const targetIndex = item ? form.agreements.indexOf(item) : -1;
     editingAgreementIndex.value = targetIndex;
     agreementDialogTitle.value = targetIndex >= 0 ? '编辑配置' : '新增配置';
     Object.assign(agreementForm, createEmptyAgreement(), item ? { ...item } : {});
     agreementDialogVisible.value = true;
+    if (form.productId != null && item?.apiData?.docId != null) {
+        documentLoading.value = true;
+        try {
+            Object.assign(agreementForm, await getProductDocument(item.apiData.docId));
+        } catch {
+            agreementDialogVisible.value = false;
+        } finally {
+            documentLoading.value = false;
+        }
+    }
 };
 const formatCurrentTime = () => {
     const date = new Date();
@@ -605,12 +666,17 @@ const hasEditorContent = (content = '') =>
         .replace(/<[^>]*>/g, '')
         .replace(/&nbsp;/g, '')
         .trim().length > 0;
-const saveAgreementConfig = () => {
+const saveAgreementConfig = async () => {
+    if (loading.value || loadFailed.value || documentSaving.value || documentLoading.value || agreementUploading.value) return;
     if (!agreementForm.name.trim() || !agreementForm.agreementType) {
         proxy?.$modal.msgWarning(agreementForm.configType === 'agreement' ? '请完整填写协议类型和协议标题' : '请完整填写协议名称和协议类型');
         return;
     }
-    if (agreementForm.configType === 'agreement' && !hasEditorContent(agreementForm.content)) {
+    if (
+        agreementForm.configType === 'agreement' &&
+        (!agreementForm.contentType || agreementForm.contentType === 'text') &&
+        !hasEditorContent(agreementForm.content)
+    ) {
         proxy?.$modal.msgWarning('请填写协议内容');
         return;
     }
@@ -623,33 +689,72 @@ const saveAgreementConfig = () => {
             proxy?.$modal.msgWarning('请输入链接地址');
             return;
         }
-        if (agreementForm.contentType === 'attachment' && !agreementForm.fileName) {
+        if (agreementForm.contentType === 'attachment' && !agreementForm.filePath) {
             proxy?.$modal.msgWarning('请上传附件');
             return;
         }
     }
-    const item = structuredClone({ ...agreementForm, updatedAt: formatCurrentTime() });
-    if (editingAgreementIndex.value >= 0) form.agreements.splice(editingAgreementIndex.value, 1, item);
-    else form.agreements.unshift({ ...item, id: Date.now() });
-    agreementDialogVisible.value = false;
-    proxy?.$modal.msgSuccess(editingAgreementIndex.value >= 0 ? '配置更新成功' : '配置新增成功');
+    const item: AgreementConfigItem = JSON.parse(JSON.stringify({ ...agreementForm, updatedAt: formatCurrentTime() }));
+    documentSaving.value = true;
+    let submitted = false;
+    try {
+        if (form.productId != null) {
+            const doc = toProductRequest({ ...form, agreements: [item] }).docList![0];
+            await saveProductDocument(doc);
+            submitted = true;
+            agreementDialogVisible.value = false;
+            form.agreements = await listProductDocuments(form.productId);
+        } else if (editingAgreementIndex.value >= 0) form.agreements.splice(editingAgreementIndex.value, 1, item);
+        else form.agreements.unshift({ ...item, id: Date.now() });
+        agreementDialogVisible.value = false;
+        proxy?.$modal.msgSuccess(form.productId == null ? '已加入配置，请保存产品以提交' : '协议文件保存成功');
+    } catch {
+        if (submitted) {
+            loadFailed.value = true;
+            proxy?.$modal.msgWarning('协议文件已保存，但列表刷新失败，请刷新后继续编辑');
+        }
+    } finally {
+        documentSaving.value = false;
+    }
 };
-const deleteAgreement = (item: AgreementConfigItem) => {
-    proxy?.$modal
-        .confirm(`确认删除“${item.name}”吗？`)
-        .then(() => {
-            const index = form.agreements.indexOf(item);
-            if (index >= 0) form.agreements.splice(index, 1);
-            proxy?.$modal.msgSuccess('删除成功');
-        })
-        .catch(() => undefined);
+const deleteAgreement = async (item: AgreementConfigItem) => {
+    if (loading.value || loadFailed.value || documentSaving.value) return;
+    try {
+        await proxy?.$modal.confirm(`确认删除“${item.name}”吗？`);
+        documentSaving.value = true;
+        if (form.productId != null && item.apiData?.docId != null) await deleteProductDocument(item.apiData.docId);
+        const index = form.agreements.indexOf(item);
+        if (index >= 0) form.agreements.splice(index, 1);
+        proxy?.$modal.msgSuccess(form.productId == null ? '已从当前配置移除' : '删除成功');
+    } catch {
+        /* 用户取消或接口失败时保留现有列表。 */
+    } finally {
+        documentSaving.value = false;
+    }
 };
-const handleAgreementFileChange = (uploadFile: UploadFile) => {
-    if (uploadFile.raw && uploadFile.raw.size > 20 * 1024 * 1024) {
+const handleAgreementFileChange = async (uploadFile: UploadFile) => {
+    const file = uploadFile.raw;
+    if (!file) return;
+    if (!/\.(pdf|doc|docx|jpg|jpeg|png)$/i.test(file.name)) {
+        proxy?.$modal.msgWarning('请上传 PDF、Word 或图片附件');
+        return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
         proxy?.$modal.msgWarning('单个附件不能超过 20MB');
         return;
     }
-    agreementForm.fileName = uploadFile.name;
+    const sequence = ++agreementUploadSequence;
+    agreementUploading.value = true;
+    try {
+        const url = await uploadProductFile(file);
+        if (sequence !== agreementUploadSequence || !agreementDialogVisible.value) return;
+        agreementForm.filePath = url;
+        agreementForm.fileName = file.name;
+    } catch {
+        // 请求拦截器负责显示上传错误。
+    } finally {
+        if (sequence === agreementUploadSequence) agreementUploading.value = false;
+    }
 };
 const testAgreementLink = () => {
     try {
@@ -698,10 +803,9 @@ const syncForceReadRule = () => {
         item.seconds = form.forceReadRule.requireDuration ? form.forceReadRule.seconds : 0;
     });
 };
-watch(() => [form.forceReadRule.requireScroll, form.forceReadRule.requireDuration, form.forceReadRule.seconds], syncForceReadRule);
 const moveForceRead = (index: number, offset: number) => {
     const targetIndex = index + offset;
-    if (form.forceRead[index]?.important || targetIndex <= 0 || targetIndex >= form.forceRead.length) return;
+    if (form.forceRead[index]?.important || targetIndex < 0 || targetIndex >= form.forceRead.length || form.forceRead[targetIndex]?.important) return;
     const [item] = form.forceRead.splice(index, 1);
     form.forceRead.splice(targetIndex, 0, item);
     syncForceReadSort();
@@ -725,8 +829,7 @@ const addForceRead = () => {
 };
 const createImportantForceRead = (): ForceReadItem => ({
     title: '重要提示',
-    content:
-        '<p>1. 本产品由诚安达保险销售服务股份有限公司销售，承保公司以具体方案为准。</p><p>2. 投保前请仔细阅读保险条款，特别是责任免除部分。</p><p>3. 本产品保障期间为一年，到期后可续保。</p><p>4. 如有疑问，请拨打客服电话咨询。</p>',
+    content: '',
     seconds: 0,
     enabled: true,
     requireScroll: false,
@@ -746,20 +849,21 @@ const validateFieldsConfig = () => {
         const group = form.fieldGroups[groupIndex];
         const invalidField = group.fields.findIndex((field) => !field.name.trim() || !field.type || !field.placeholder.trim());
         if (invalidField >= 0) return `请完善“${group.name}”中的第 ${invalidField + 1} 个字段`;
-        const invalidOptions = group.fields.findIndex((field) => ['单选', '多选'].includes(field.type) && !field.options?.length);
+        const invalidOptions = group.fields.findIndex(
+            (field) => /单选|多选|下拉/.test(dictionaries.fieldTypes.find((item) => item.value === field.type)?.label || '') && !field.options?.length
+        );
         if (invalidOptions >= 0) return `请为“${group.fields[invalidOptions].name}”配置选项值`;
     }
     return '';
 };
 const validateBasicConfig = () => {
-    if (!form.name || !form.code || !form.businessUnit) return '请完整填写产品名称、产品编码和业务归属';
+    if (!form.name.trim() || !form.code.trim() || !form.businessUnit || form.businessDeptId == null) return '请完整填写产品名称、产品编码和业务归属';
     return '';
 };
 const validatePlanConfig = () => {
     const basicMessage = validateBasicConfig();
     if (basicMessage) return basicMessage;
     if (!form.products.length) return '请至少添加一个产品';
-    if (!form.products.some((product) => product.required)) return '请至少将一个产品设置为必选';
     const invalidProductIndex = form.products.findIndex((product) => !product.name || !product.type || !product.companyId);
     if (invalidProductIndex >= 0) {
         selectProduct(invalidProductIndex);
@@ -786,120 +890,187 @@ const validateIntroConfig = () => {
     if (form.introductionMediaType === 'carousel' && !form.introductionCarouselImages.length) return '请至少添加一张轮播图片';
     return '';
 };
-const sanitizeIntroMedia = () => {
-    if (form.introductionMediaType === 'video') {
-        form.introductionCarouselImages = [];
-        return;
-    }
-    form.introductionVideoUrl = '';
-    form.introductionVideoName = '';
-    form.introductionVideoPoster = '';
-    form.introductionVideoPosterName = '';
-};
 const save = async (draft: boolean) => {
-    const message = hasOrders.value
-        ? ''
-        : draft
-          ? !form.name || !form.code || !form.businessUnit
-              ? '请完整填写产品名称、产品编码和业务归属'
-              : ''
-          : activeTab.value === 'basic'
-            ? validateBasicConfig()
+    if (saving.value || loading.value || loadFailed.value || mediaUploading.value || agreementUploading.value || documentSaving.value) return;
+    const message =
+        validateBasicConfig() ||
+        (draft || hasOrders.value
+            ? ''
             : activeTab.value === 'plan'
               ? validatePlanConfig()
               : activeTab.value === 'intro'
                 ? validateIntroConfig()
                 : activeTab.value === 'fields'
                   ? validateFieldsConfig()
-                  : '';
+                  : '');
     if (message) {
         proxy?.$modal.msgWarning(message);
-        if (activeTab.value === 'plan' && validateBasicConfig()) activeTab.value = 'basic';
+        if (validateBasicConfig()) activeTab.value = 'basic';
         return;
     }
     saving.value = true;
+    const isNew = form.productId == null;
+    const section = draft || isNew ? 'all' : activeTab.value;
+    let submitted = false;
     try {
-        sanitizeIntroMedia();
-        form.productId = await saveProductConfig(form);
+        form.productId = await saveProductConfig(form, section);
+        submitted = true;
+        // 回读后端生成的子配置主键，避免下一次保存重复新增方案或字段。
+        const saved = await getProductConfig(form.productId);
+        form.apiData = saved.apiData;
+        if (draft || isNew) Object.assign(form, saved);
+        else if (section === 'plan') form.products = saved.products;
+        else if (section === 'fields') form.fieldGroups = saved.fieldGroups;
+        else if (section === 'read') {
+            form.forceRead = saved.forceRead;
+            form.forceReadRule = saved.forceReadRule;
+        } else if (section === 'agreement') form.agreements = saved.agreements;
         proxy?.$modal.msgSuccess(draft ? '临时保存成功' : '配置保存成功');
-        if (!draft && activeTab.value === 'plan') router.push('/product/product');
+        if (isNew) await router.replace({ path: `/product/config/${form.productId}`, query: { tab: activeTab.value } });
+    } catch (error) {
+        if (submitted) {
+            loadFailed.value = true;
+            proxy?.$modal.msgWarning('配置已保存，但回读失败，请刷新后再编辑');
+            if (isNew) await router.replace({ path: `/product/config/${form.productId}`, query: { tab: activeTab.value } });
+        } else if (error instanceof Error) {
+            if (error.message.includes('未返回产品ID')) loadFailed.value = true;
+            proxy?.$modal.msgError(error.message);
+        }
     } finally {
         saving.value = false;
     }
 };
 
-onMounted(async () => {
+const configurationPath = route.path;
+let lastConfigurationSource: string | undefined;
+let configurationLoadSequence = 0;
+const loadConfiguration = async () => {
+    const sequence = ++configurationLoadSequence;
+    const sourceId = route.query.copy ? String(route.query.copy) : route.params.id ? String(route.params.id) : undefined;
+    lastConfigurationSource = sourceId || '';
+    Object.assign(form, createProductConfig(), { productId: undefined, apiData: undefined, businessDeptId: undefined });
+    productIndex.value = 0;
+    planIndex.value = 0;
+    activeTab.value = tabNames.includes(String(route.query.tab) as ProductConfigSection)
+        ? (String(route.query.tab) as ProductConfigSection)
+        : 'basic';
+    loadFailed.value = false;
+    agreementDialogVisible.value = false;
+    agreementUploadSequence += 1;
+    agreementUploading.value = false;
+    loading.value = true;
     companyLoading.value = true;
     try {
-        const result = await listInsuranceCompany({ pageNum: 1, pageSize: 100, companyName: '', status: '0' });
-        companyOptions.value = result.rows;
-    } finally {
-        companyLoading.value = false;
-    }
-    const sourceId = route.query.copy ? Number(route.query.copy) : route.params.id ? Number(route.params.id) : undefined;
-    Object.assign(form, await getProductConfig(sourceId));
-    form.introductionMediaType = form.introductionMediaType === 'carousel' ? 'carousel' : 'video';
-    form.introductionVideoUrl ||= '';
-    form.introductionVideoName ||= '';
-    form.introductionVideoPoster ||= '';
-    form.introductionVideoPosterName ||= '';
-    form.introductionVideoAutoplay ??= true;
-    form.introductionVideoMuted ??= true;
-    form.introductionCarouselImages ||= [];
-    form.introductionCarouselInterval = Math.min(10, Math.max(2, form.introductionCarouselInterval || 3));
-    form.agreements = form.agreements.map((item, index) => {
-        const configType = item.configType || 'productFile';
-        const contentType = item.contentType || (item.url ? 'link' : 'attachment');
-        return {
-            ...item,
-            id: item.id ?? index + 1,
-            configType,
-            name: item.name || '',
-            agreementType: item.agreementType || (configType === 'agreement' ? '用户服务协议' : '产品条款'),
-            contentType: configType === 'productFile' ? contentType : undefined,
-            content: item.content || '',
-            link: item.link || item.url || '',
-            fileName: item.fileName || '',
-            enabled: item.enabled ?? true,
-            sort: configType === 'productFile' ? (item.sort ?? index + 1) : undefined,
-            updatedAt: item.updatedAt || ''
-        };
-    });
-    if (!form.forceRead[0]?.important) form.forceRead.unshift(createImportantForceRead());
-    if (!form.forceReadRule) {
-        const legacyRule = form.forceRead.find((item) => !item.important);
-        form.forceReadRule = {
-            requireScroll: legacyRule?.requireScroll ?? legacyRule?.readMode !== 'duration',
-            requireDuration: legacyRule?.requireDuration ?? legacyRule?.readMode === 'duration',
-            seconds: legacyRule?.seconds || 10
-        };
-    }
-    form.forceRead.forEach((item, index) => {
-        item.important = index === 0;
-        item.sort = index + 1;
-        if (item.important) {
-            item.requireScroll = false;
-            item.requireDuration = false;
+        const [configResult, companyResult, departmentResult, dictionaryResult] = await Promise.allSettled([
+            getProductConfig(sourceId),
+            listEnabledInsuranceCompanies(),
+            listBusinessDepartments(),
+            getProductDictionaries()
+        ]);
+        if (sequence !== configurationLoadSequence) return;
+        if (companyResult.status === 'fulfilled') companyOptions.value = companyResult.value;
+        if (departmentResult.status === 'fulfilled') units.value = departmentResult.value;
+        if (dictionaryResult.status === 'fulfilled') Object.assign(dictionaries, dictionaryResult.value);
+        if (configResult.status === 'rejected') {
+            loadFailed.value = true;
+            if (configResult.reason instanceof Error) proxy?.$modal.msgError(configResult.reason.message);
             return;
         }
-        if (typeof item.requireScroll !== 'boolean' && typeof item.requireDuration !== 'boolean') {
-            item.requireScroll = item.readMode !== 'duration';
-            item.requireDuration = item.readMode === 'duration';
+        Object.assign(form, configResult.value);
+        if (form.businessDeptId != null && !units.value.some((dept) => dept.deptId === form.businessDeptId)) {
+            units.value.push({ deptId: form.businessDeptId, deptName: form.businessUnit } as DeptVO);
         }
-        item.requireScroll ??= true;
-        item.requireDuration ??= false;
-        if (!item.requireScroll && !item.requireDuration) item.requireScroll = true;
-    });
-    if (!form.forceReadRule.requireScroll && !form.forceReadRule.requireDuration) form.forceReadRule.requireScroll = true;
-    if (form.forceReadRule.seconds < 1) form.forceReadRule.seconds = 10;
-    syncForceReadRule();
-    if (isCopy.value) {
-        form.productId = undefined;
-        form.hasOrders = false;
-        form.code = '';
-        form.businessUnit = '';
+        form.products.forEach((product) => {
+            if (product.companyId != null && !companyOptions.value.some((company) => company.companyId === product.companyId)) {
+                companyOptions.value.push({
+                    companyId: product.companyId,
+                    companyName: product.companyName || String(product.companyId),
+                    logo: '',
+                    website: '',
+                    remark: '',
+                    status: '1'
+                });
+            }
+        });
+        form.introductionMediaType = form.introductionMediaType === 'carousel' ? 'carousel' : 'video';
+        form.introductionVideoUrl ||= '';
+        form.introductionVideoName ||= '';
+        form.introductionVideoPoster ||= '';
+        form.introductionVideoPosterName ||= '';
+        form.introductionVideoAutoplay ??= true;
+        form.introductionVideoMuted ??= true;
+        form.introductionCarouselImages ||= [];
+        form.introductionCarouselInterval = Math.min(10, Math.max(2, form.introductionCarouselInterval || 3));
+        form.agreements = form.agreements.map((item, index) => {
+            const configType = item.configType || 'productFile';
+            const contentType = item.contentType || (item.url ? 'link' : 'attachment');
+            return {
+                ...item,
+                id: item.id ?? index + 1,
+                configType,
+                name: item.name || '',
+                agreementType: item.agreementType || '',
+                contentType,
+                content: item.content || '',
+                link: item.link || item.url || '',
+                fileName: item.fileName || '',
+                enabled: item.enabled ?? true,
+                sort: configType === 'productFile' ? (item.sort ?? index + 1) : undefined,
+                updatedAt: item.updatedAt || ''
+            };
+        });
+        if (!sourceId && !form.forceRead.length) form.forceRead.push(createImportantForceRead());
+        if (!form.forceReadRule) {
+            const legacyRule = form.forceRead.find((item) => !item.important);
+            form.forceReadRule = {
+                requireScroll: legacyRule?.requireScroll ?? legacyRule?.readMode !== 'duration',
+                requireDuration: legacyRule?.requireDuration ?? legacyRule?.readMode === 'duration',
+                seconds: legacyRule?.seconds || 10
+            };
+        }
+        form.forceRead.forEach((item, index) => {
+            item.important = item.important === true;
+            item.sort ||= index + 1;
+            if (item.important) {
+                item.requireScroll = false;
+                item.requireDuration = false;
+                return;
+            }
+            if (typeof item.requireScroll !== 'boolean' && typeof item.requireDuration !== 'boolean') {
+                item.requireScroll = item.readMode !== 'duration';
+                item.requireDuration = item.readMode === 'duration';
+            }
+            item.requireScroll ??= true;
+            item.requireDuration ??= false;
+            if (!item.requireScroll && !item.requireDuration) item.requireScroll = true;
+        });
+        if (!form.forceReadRule.requireScroll && !form.forceReadRule.requireDuration) form.forceReadRule.requireScroll = true;
+        if (form.forceReadRule.seconds < 1) form.forceReadRule.seconds = 10;
+        if (isCopy.value) {
+            form.productId = undefined;
+            form.hasOrders = false;
+            form.code = '';
+            form.businessUnit = '';
+            form.businessDeptId = undefined;
+            form.status = '0';
+        }
+    } finally {
+        if (sequence === configurationLoadSequence) {
+            loading.value = false;
+            companyLoading.value = false;
+        }
     }
-});
+};
+
+onMounted(loadConfiguration);
+watch(
+    () => [route.path, route.query.copy],
+    () => {
+        if (route.path !== configurationPath) return;
+        const source = route.query.copy ? String(route.query.copy) : route.params.id ? String(route.params.id) : '';
+        if (source !== lastConfigurationSource) loadConfiguration();
+    }
+);
 </script>
 
 <style scoped lang="scss">

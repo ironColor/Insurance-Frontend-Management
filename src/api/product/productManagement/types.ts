@@ -1,12 +1,29 @@
+import type { ApiBlockConfig, ApiDoc, ApiFieldConfig, ApiLiability, ApiPlan, ApiPlanGroup, ApiProduct, ProductId } from './apiTypes';
+export type { ProductId } from './apiTypes';
+
+export interface ProductDictionaryOption {
+  label: string;
+  value: string;
+}
+
+export interface ProductDictionaries {
+  fieldTypes: ProductDictionaryOption[];
+  formatRules: ProductDictionaryOption[];
+  businessRules: ProductDictionaryOption[];
+  agreementTypes: ProductDictionaryOption[];
+}
+
+export type ProductConfigSection = 'basic' | 'plan' | 'intro' | 'fields' | 'read' | 'agreement';
+
 export interface ProductVO {
-  productId: number;
+  productId: ProductId;
   owner: string;
   productCode: string;
   productName: string;
   businessUnit: string;
   createTime: string;
-  premium: number;
-  orderCount: number;
+  premium?: number;
+  orderCount?: number;
   status: '0' | '1';
 }
 
@@ -16,27 +33,33 @@ export interface ProductQuery {
   productCode: string;
   productName: string;
   businessUnit: string;
+  businessDeptId?: ProductId;
   status: '0' | '1';
 }
 
 export interface ProtectionItem {
+  apiData?: ApiLiability;
   name: string;
   amount: string;
 }
 export interface ProductPlan {
+  apiData?: ApiPlan;
   name: string;
   premium: number;
   description: string;
   protections: ProtectionItem[];
 }
 export interface ProductItem {
+  apiData?: ApiPlanGroup;
   name: string;
   type: string;
-  companyId?: number;
+  companyId?: ProductId;
+  companyName?: string;
   required: boolean;
   plans: ProductPlan[];
 }
 export interface InsuredField {
+  apiData?: ApiFieldConfig;
   id?: string;
   name: string;
   type: string;
@@ -48,6 +71,7 @@ export interface InsuredField {
   businessRules?: string[];
 }
 export interface FieldGroup {
+  apiData?: ApiBlockConfig;
   id?: string;
   name: string;
   fields: InsuredField[];
@@ -62,6 +86,7 @@ export interface IntroductionCarouselImage {
 }
 
 export interface ForceReadItem {
+  apiData?: ApiDoc;
   title: string;
   content: string;
   seconds: number;
@@ -83,7 +108,8 @@ export type AgreementConfigType = 'productFile' | 'agreement';
 export type AgreementContentType = 'text' | 'link' | 'attachment';
 
 export interface AgreementConfigItem {
-  id?: number;
+  apiData?: ApiDoc;
+  id?: ProductId;
   configType: AgreementConfigType;
   code?: string;
   name: string;
@@ -93,6 +119,7 @@ export interface AgreementConfigItem {
   content?: string;
   link?: string;
   fileName?: string;
+  filePath?: string;
   enabled: boolean;
   sort?: number;
   remark?: string;
@@ -103,11 +130,14 @@ export interface AgreementConfigItem {
 }
 
 export interface ProductConfig {
-  productId?: number;
+  apiData?: ApiProduct;
+  productId?: ProductId;
   hasOrders: boolean;
   name: string;
   code: string;
   businessUnit: string;
+  businessDeptId?: ProductId;
+  status?: '0' | '1';
   subtitle: string;
   products: ProductItem[];
   introduction: string;

@@ -2,7 +2,7 @@ import request from '@/utils/request';
 import type { InsuranceCompanyForm, InsuranceCompanyPageResult, InsuranceCompanyQuery, InsuranceCompanyVO } from './types';
 
 interface InsuranceCompanyResponse {
-  insCompanyId: number;
+  insCompanyId: string | number;
   companyName: string;
   logoUrl?: string;
   linkUrl?: string;
@@ -28,6 +28,11 @@ const toRequest = (data: InsuranceCompanyForm) => ({
   status: data.status
 });
 
+export const listEnabledInsuranceCompanies = async (): Promise<InsuranceCompanyVO[]> => {
+  const response = await request<InsuranceCompanyResponse[]>({ url: '/product/insCompany/companyList', method: 'get', params: { status: '0' } });
+  return (response.data || []).map(toCompany);
+};
+
 export const listInsuranceCompany = async (query: InsuranceCompanyQuery): Promise<InsuranceCompanyPageResult> => {
   const response = await request<InsuranceCompanyResponse[]>({
     url: '/product/insCompany/list',
@@ -42,7 +47,7 @@ export const listInsuranceCompany = async (query: InsuranceCompanyQuery): Promis
   return { rows: (response.rows || []).map(toCompany), total: response.total || 0 };
 };
 
-export const getInsuranceCompany = async (companyId: number): Promise<InsuranceCompanyVO> => {
+export const getInsuranceCompany = async (companyId: string | number): Promise<InsuranceCompanyVO> => {
   const response = await request<InsuranceCompanyResponse>({ url: `/product/insCompany/${companyId}`, method: 'get' });
   return toCompany(response.data);
 };
@@ -51,7 +56,7 @@ export const addInsuranceCompany = (data: InsuranceCompanyForm) => request({ url
 
 export const updateInsuranceCompany = (data: InsuranceCompanyForm) => request({ url: '/product/insCompany', method: 'put', data: toRequest(data) });
 
-export const deleteInsuranceCompany = (companyId: number) => request({ url: `/product/insCompany/${companyId}`, method: 'delete' });
+export const deleteInsuranceCompany = (companyId: string | number) => request({ url: `/product/insCompany/${companyId}`, method: 'delete' });
 
-export const changeInsuranceCompanyStatus = (companyId: number, status: '0' | '1') =>
+export const changeInsuranceCompanyStatus = (companyId: string | number, status: '0' | '1') =>
   request({ url: '/product/insCompany/editStatus', method: 'put', data: { insCompanyId: companyId, status } });

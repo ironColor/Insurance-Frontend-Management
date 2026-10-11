@@ -16,8 +16,8 @@
           ><el-input v-model="query.productName" placeholder="产品名称" clearable @keyup.enter="search"
         /></el-form-item>
         <el-form-item prop="businessUnit"
-          ><el-select v-model="query.businessUnit" placeholder="选择业务归属" clearable
-            ><el-option v-for="x in units" :key="x" :label="x" :value="x" /></el-select
+          ><el-select v-model="query.businessDeptId" placeholder="选择业务归属" clearable filterable
+            ><el-option v-for="x in units" :key="x.deptId" :label="x.deptName" :value="x.deptId" /></el-select
         ></el-form-item>
         <el-form-item><el-button type="primary" @click="search">查询</el-button></el-form-item>
         <el-form-item class="add-action"><el-button type="primary" @click="router.push('/product/config')">新增</el-button></el-form-item>
@@ -27,17 +27,17 @@
         <el-table-column prop="productCode" label="产品编码" min-width="170" show-overflow-tooltip />
         <el-table-column prop="productName" label="产品名称" min-width="290" show-overflow-tooltip />
         <el-table-column prop="businessUnit" label="业务归属" width="150" />
-        <el-table-column prop="createTime" label="创建时间" width="120" />
+        <el-table-column prop="createTime" label="创建时间" width="170" />
         <el-table-column label="保费统计" width="110" align="right"
           ><template #default="s"
             ><el-link type="primary" @click="showOrders(s.row, 'premium')">{{
-              s.row.premium ? s.row.premium.toLocaleString() : '-'
+              s.row.premium == null ? '-' : s.row.premium.toLocaleString()
             }}</el-link></template
           ></el-table-column
         >
         <el-table-column label="订单数量" width="100" align="center"
           ><template #default="s"
-            ><el-link type="primary" @click="showOrders(s.row, 'count')">{{ s.row.orderCount }}</el-link></template
+            ><el-link type="primary" @click="showOrders(s.row, 'count')">{{ s.row.orderCount ?? '-' }}</el-link></template
           ></el-table-column
         >
         <el-table-column label="操作" width="285" fixed="right" align="center"
@@ -54,9 +54,10 @@
       </el-table>
       <pagination v-show="total > 0" v-model:page="query.pageNum" v-model:limit="query.pageSize" :total="total" @pagination="load" />
     </el-card>
-    <el-dialog v-model="qrVisible" title="产品二维码" width="380px"
-      ><div class="qr-box">
-        <div class="fake-qr">{{ qrProduct?.productCode }}</div>
+    <el-dialog v-model="qrVisible" title="产品二维码" width="380px" @closed="clearQr"
+      ><div v-loading="qrLoading" class="qr-box">
+        <img v-if="qrUrl" class="product-qr" :src="qrUrl" alt="产品投保二维码" />
+        <el-empty v-else-if="!qrLoading" description="二维码生成失败，请重试" :image-size="100" />
         <h3>{{ qrProduct?.productName }}</h3>
         <p>微信扫码进入产品投保页</p>
       </div></el-dialog
@@ -64,25 +65,32 @@
   </div>
 </template>
 <script setup name="ProductList" lang="ts">
-import { changeProductStatus, listProducts } from '@/api/product/productManagement';
+import { changeProductStatus, getProductQrCode, listBusinessDepartments, listProducts } from '@/api/product/productManagement';
 import type { ProductQuery, ProductVO } from '@/api/product/productManagement/types';
+import type { DeptVO } from '@/api/system/dept/types';
 const router = useRouter();
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
-const units = ['贵州本部', '重庆本部', '保定本部', '保险财险事业部', '山西', '济南', '四川本部'];
+const units = ref<DeptVO[]>([]);
 const loading = ref(false);
 const list = ref<ProductVO[]>([]);
 const total = ref(0);
 const query = reactive<ProductQuery>({ pageNum: 1, pageSize: 10, productCode: '', productName: '', businessUnit: '', status: '0' });
 const qrVisible = ref(false);
 const qrProduct = ref<ProductVO>();
+const qrLoading = ref(false);
+const qrUrl = ref('');
+let qrSequence = 0;
+let listSequence = 0;
 const load = async () => {
+  const sequence = ++listSequence;
   loading.value = true;
   try {
-    const res = await listProducts(query);
+    const res = await listProducts({ ...query });
+    if (sequence !== listSequence) return;
     list.value = res.rows;
     total.value = res.total;
   } finally {
-    loading.value = false;
+    if (sequence === listSequence) loading.value = false;
   }
 };
 const search = () => {
@@ -100,13 +108,35 @@ const toggle = async (row: ProductVO) => {
   load();
 };
 const duplicate = (row: ProductVO) => router.push({ path: '/product/config', query: { copy: String(row.productId) } });
-const showQr = (row: ProductVO) => {
+const clearQr = () => {
+  qrSequence += 1;
+  if (qrUrl.value) URL.revokeObjectURL(qrUrl.value);
+  qrUrl.value = '';
+};
+const showQr = async (row: ProductVO) => {
+  clearQr();
+  const sequence = qrSequence;
   qrProduct.value = row;
   qrVisible.value = true;
+  qrLoading.value = true;
+  try {
+    const blob = await getProductQrCode(row.productId);
+    if (sequence === qrSequence && qrVisible.value) qrUrl.value = URL.createObjectURL(blob);
+  } catch (error) {
+    if (sequence === qrSequence) proxy?.$modal.msgError(error instanceof Error ? error.message : '二维码生成失败');
+  } finally {
+    if (sequence === qrSequence) qrLoading.value = false;
+  }
 };
 const showOrders = (_row: ProductVO, type: string) =>
   router.push({ path: '/order/list', query: { ...(type === 'premium' ? { payStatus: 'paid' } : {}) } });
-onMounted(load);
+onMounted(async () => {
+  await Promise.allSettled([load(), listBusinessDepartments().then((result) => (units.value = result))]);
+});
+onActivated(() => {
+  if (!loading.value) load();
+});
+onBeforeUnmount(clearQr);
 </script>
 <style scoped lang="scss">
 .product-page {
@@ -171,20 +201,12 @@ onMounted(load);
   text-align: center;
   padding: 8px 20px 24px;
 }
-.fake-qr {
+.product-qr {
   width: 190px;
   height: 190px;
   margin: auto;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  background: repeating-conic-gradient(#111 0 4%, #fff 0 8%);
-  border: 12px solid #fff;
-  box-shadow: 0 0 0 1px #ddd;
-  color: #fff;
-  font-weight: 700;
-  text-shadow: 0 1px 3px #000;
-  word-break: break-all;
+  display: block;
+  object-fit: contain;
 }
 .qr-box p {
   color: #909399;
