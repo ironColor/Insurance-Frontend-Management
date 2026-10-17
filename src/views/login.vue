@@ -6,7 +6,6 @@
           <img src="@/assets/logo/brand-logo.png" alt="" class="brand-logo" />
           <h3 class="title">{{ title }}</h3>
         </div>
-        <lang-select />
       </div>
       <el-form-item v-if="tenantEnabled" prop="tenantId">
         <el-select v-model="loginForm.tenantId" filterable :placeholder="proxy.$t('login.selectPlaceholder')" style="width: 100%">
@@ -47,23 +46,6 @@
         </div>
       </el-form-item>
       <el-checkbox v-model="loginForm.rememberMe" style="margin: 0 0 25px 0">{{ proxy.$t('login.rememberPassword') }}</el-checkbox>
-      <el-form-item style="float: right">
-        <el-button circle :title="proxy.$t('login.social.wechat')" @click="doSocialLogin('wechat_open')">
-          <svg-icon icon-class="wechat" />
-        </el-button>
-        <el-button circle :title="proxy.$t('login.social.maxkey')" @click="doSocialLogin('maxkey')">
-          <svg-icon icon-class="maxkey" />
-        </el-button>
-        <el-button circle :title="proxy.$t('login.social.topiam')" @click="doSocialLogin('topiam')">
-          <svg-icon icon-class="topiam" />
-        </el-button>
-        <el-button circle :title="proxy.$t('login.social.gitee')" @click="doSocialLogin('gitee')">
-          <svg-icon icon-class="gitee" />
-        </el-button>
-        <el-button circle :title="proxy.$t('login.social.github')" @click="doSocialLogin('github')">
-          <svg-icon icon-class="github" />
-        </el-button>
-      </el-form-item>
       <el-form-item style="width: 100%">
         <el-button :loading="loading" size="large" type="primary" style="width: 100%" @click.prevent="handleLogin">
           <span v-if="!loading">{{ proxy.$t('login.login') }}</span>
@@ -83,11 +65,9 @@
 
 <script setup lang="ts">
 import { getCodeImg, getTenantList } from '@/api/login';
-import { authRouterUrl } from '@/api/system/social/auth';
 import { useUserStore } from '@/store/modules/user';
 import { LoginData, TenantVO } from '@/api/types';
 import { to } from 'await-to-js';
-import { HttpStatus } from '@/enums/RespEnum';
 import { useI18n } from 'vue-i18n';
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
@@ -213,21 +193,6 @@ const initTenantList = async () => {
   }
 };
 
-/**
- * 第三方登录
- * @param type
- */
-const doSocialLogin = (type: string) => {
-  authRouterUrl(type, loginForm.value.tenantId).then((res: any) => {
-    if (res.code === HttpStatus.SUCCESS) {
-      // 获取授权地址跳转
-      window.location.href = res.data;
-    } else {
-      ElMessage.error(res.msg);
-    }
-  });
-};
-
 onMounted(() => {
   getCode();
   initTenantList();
@@ -250,7 +215,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   margin-bottom: 26px;
 
   .brand-title {
@@ -272,13 +236,6 @@ onMounted(() => {
     color: var(--el-text-color-primary);
     font-weight: 600;
     letter-spacing: 0.5px;
-  }
-
-  :deep(.lang-select--style) {
-    position: absolute;
-    right: 0;
-    line-height: 0;
-    color: var(--el-text-color-secondary);
   }
 }
 
@@ -323,17 +280,6 @@ onMounted(() => {
 .login-form :deep(.el-button--primary) {
   border-radius: var(--app-radius-md);
   box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
-}
-
-.login-form :deep(.el-button.is-circle) {
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  color: var(--el-text-color-regular);
-}
-
-.login-form :deep(.el-button.is-circle:hover) {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.2);
 }
 
 .login-code {
@@ -383,12 +329,6 @@ onMounted(() => {
 
   .login-form :deep(.el-input__wrapper) {
     background-color: rgba(17, 24, 39, 0.7);
-  }
-
-  .login-form :deep(.el-button.is-circle) {
-    background: rgba(148, 163, 184, 0.12);
-    border-color: rgba(148, 163, 184, 0.25);
-    color: #e5e7eb;
   }
 
   .el-login-footer {
