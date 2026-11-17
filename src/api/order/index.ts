@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import { orderFilters, requireProductId, validateExport } from './contract';
+import { orderColumns, orderFilters, requireProductId, validateExport, type OrderExport } from './contract';
 import type { OrderId, OrderPageResult, OrderQuery, OrderStatistics, OrderVO } from './types';
 const base = '/product/product';
 export const listOrders = async (query: OrderQuery): Promise<OrderPageResult> => {
@@ -8,7 +8,13 @@ export const listOrders = async (query: OrderQuery): Promise<OrderPageResult> =>
     url: `${base}/${params.productId}/orderList`, method: 'get',
     params: { ...params, pageNum: query.pageNum, pageSize: query.pageSize }
   });
-  return { rows: response.rows || [], total: response.total || 0 };
+  const rows = response.rows || [];
+  let blocks: unknown = [];
+  if (!rows.length) {
+    const product = await request<{ blockConfigList?: unknown }>({ url: `${base}/${params.productId}`, method: 'get' });
+    blocks = product.data?.blockConfigList || [];
+  }
+  return { rows, total: response.total || 0, columns: orderColumns(rows, blocks) };
 };
 export const getOrderStatistics = async (productId: OrderId): Promise<OrderStatistics> => {
   const id = requireProductId(productId);
@@ -20,7 +26,7 @@ export const getOrder = async (orderId: OrderId): Promise<OrderVO> => {
   if (!response.data) throw new Error('未获取到订单详情');
   return response.data;
 };
-export const exportOrders = async (query: OrderQuery): Promise<Blob> => {
+export const exportOrders = async (query: OrderQuery): Promise<OrderExport> => {
   const params = orderFilters(query);
   const blob = await request<never, Blob>({ url: `${base}/${params.productId}/exportOrder`, method: 'get', params, responseType: 'blob' });
   return validateExport(blob);

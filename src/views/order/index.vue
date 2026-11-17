@@ -5,7 +5,7 @@
     <el-button v-if="!productId" @click="router.push('/product/productManagement')">前往产品管理</el-button>
     <template v-else>
       <p>产品 ID：{{ productId }} · 统计为该产品全部订单，不随列表筛选变化。</p>
-      <el-alert title="接口文档未标注金额单位，以下金额均为接口原值，未进行元/分换算。" type="info" :closable="false" />
+      <el-alert title="金额单位：元。未支付统计包含待支付、已取消、已关闭订单；日期筛选包含起止边界。" type="info" :closable="false" />
       <section class="statistics">
         <el-card v-for="item in statisticFields" :key="item.key" shadow="never">
           <div>{{ item.label }}</div><strong>{{ statistics[item.key] ?? '未知' }}</strong>
@@ -30,11 +30,12 @@
       <el-alert v-if="error" :title="error" type="error" :closable="false" />
       <el-table v-loading="loading" :data="orders" row-key="orderId">
         <el-table-column prop="orderNo" label="订单编号" min-width="220" />
+        <el-table-column v-for="field in columns" :key="field.name" :label="field.label" min-width="160"><template #default="{ row }">{{ orderFieldValue(row, field.name) }}</template></el-table-column>
         <el-table-column prop="businessDeptName" label="业务归属" min-width="130" />
         <el-table-column prop="productCode" label="产品编码" min-width="130" />
         <el-table-column prop="productName" label="产品名称" min-width="150" />
-        <el-table-column label="总金额（原值）" width="150"><template #default="{ row }">{{ displayAmount(row.totalAmount) }}</template></el-table-column>
-        <el-table-column label="实付（原值）" width="130"><template #default="{ row }">{{ displayAmount(row.payAmount) }}</template></el-table-column>
+        <el-table-column label="总金额（元）" width="150"><template #default="{ row }">{{ displayAmount(row.totalAmount) }}</template></el-table-column>
+        <el-table-column label="支付金额（元）" width="150"><template #default="{ row }">{{ displayAmount(row.payAmount) }}</template></el-table-column>
         <el-table-column label="支付状态" width="130"><template #default="{ row }">{{ statusText(row.payStatus, dictionaries.payStatus) }}</template></el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column prop="payTime" label="支付时间" width="180" />
@@ -50,16 +51,21 @@
             <el-descriptions-item v-for="item in detailFields" :key="item.key" :label="item.label">{{ selected[item.key] ?? '未知' }}</el-descriptions-item>
             <el-descriptions-item v-for="(options, key) in dictionaries" :key="key" :label="statusLabels[key]">{{ statusText(selected[key], options) }}</el-descriptions-item>
           </el-descriptions>
-          <h3>投保信息</h3><p>按接口原始字段展示；文档未定义动态 JSON 内部结构。</p>
-          <pre>{{ displayJson(selected.orderData) }}</pre>
-          <h3>投保字段配置</h3><pre>{{ displayJson(selected.fieldData) }}</pre>
+          <h3>投保信息</h3>
+          <el-empty v-if="!orderSections(selected).length" description="暂无有效投保信息" />
+          <section v-for="(section, index) in orderSections(selected)" :key="index">
+            <h4>{{ section.name }}</h4>
+            <el-descriptions :column="1" border>
+              <el-descriptions-item v-for="field in section.fields" :key="field.name" :label="field.label">{{ field.value }}</el-descriptions-item>
+            </el-descriptions>
+          </section>
           <h3>支付记录</h3>
           <el-descriptions :column="1" border>
-            <el-descriptions-item v-for="item in paymentFields" :key="item.key" :label="item.label">{{ selected.pay?.[item.key] ?? '未知' }}</el-descriptions-item>
+            <el-descriptions-item v-for="item in paymentFields" :key="item.key" :label="item.label">{{ safeRecordValue(selected.pay, item.key) }}</el-descriptions-item>
           </el-descriptions>
           <h3>退款记录</h3>
           <el-descriptions v-for="(refund, index) in selected.refundList || []" :key="index" :column="1" border>
-            <el-descriptions-item v-for="item in refundFields" :key="item.key" :label="item.label">{{ refund[item.key] ?? '未知' }}</el-descriptions-item>
+            <el-descriptions-item v-for="item in refundFields" :key="item.key" :label="item.label">{{ safeRecordValue(refund, item.key) }}</el-descriptions-item>
             <el-descriptions-item label="退款状态">{{ statusText(refund.refundStatus, refundStatuses) }}</el-descriptions-item>
           </el-descriptions>
         </template>
@@ -74,7 +80,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import FileSaver from 'file-saver';
 import { listOrders, getOrderStatistics, getOrder, exportOrders } from '@/api/order';
-import { displayJson, displayAmount, statusText } from '@/api/order/contract';
+import { displayAmount, statusText, orderSections, orderFieldValue, safeRecordValue, refundStatusDefaults, type OrderField } from '@/api/order/contract';
 import { getDicts } from '@/api/system/dict/data';
 import type { OrderQuery, OrderStatistics, OrderVO } from '@/api/order/types';
 const route = useRoute();
@@ -84,6 +90,7 @@ const query = reactive<OrderQuery>({ productId: '', pageNum: 1, pageSize: 10, or
 const dateRange = ref<string[]>([]);
 const orders = ref<OrderVO[]>([]);
 const total = ref(0);
+const columns = ref<OrderField[]>([]);
 const statistics = ref<OrderStatistics>({});
 const loading = ref(false);
 const exporting = ref(false);
@@ -94,35 +101,35 @@ const detailError = ref('');
 const selected = ref<OrderVO>();
 let sequence = 0;
 let detailSequence = 0;
-const dictionaries = reactive<Record<'payStatus' | 'orderStatus' | 'policyStatus', {label: string; value: string}[]>>({ payStatus: [], orderStatus: [], policyStatus: [] });
-const statusLabels = { payStatus: '支付状态', orderStatus: '订单状态', policyStatus: '保单状态' };
+const dictionaries = reactive<Record<'payStatus' | 'orderStatus', {label: string; value: string}[]>>({ payStatus: [], orderStatus: [] });
+const statusLabels = { payStatus: '支付状态', orderStatus: '订单状态' };
 // Never expose gateway requests, responses or callback payloads.
-const paymentFields = [{key: 'paymentNo', label: '支付编号'}, {key: 'payChannelName', label: '渠道名称'}, {key: 'transactionId', label: '第三方交易号'}, {key: 'payAmount', label: '金额（原值）'}, {key: 'payTime', label: '支付时间'}, {key: 'errorMsg', label: '错误说明'}];
-const refundFields = [{key: 'refundNo', label: '退款编号'}, {key: 'transactionId', label: '第三方退款交易号'}, {key: 'refundAmount', label: '退款金额（原值）'}, {key: 'refundTime', label: '退款时间'}, {key: 'errorMsg', label: '错误说明'}];
-const refundStatuses = ['申请中', '退款中', '退款成功', '退款失败', '已拒绝'].map((label, index) => ({label, value: String(index)}));
+const paymentFields = [{key: 'paymentNo', label: '支付编号'}, {key: 'payChannelName', label: '渠道名称'}, {key: 'transactionId', label: '第三方交易号'}, {key: 'payAmount', label: '金额（元）'}, {key: 'payTime', label: '支付时间'}];
+const refundFields = [{key: 'refundNo', label: '退款编号'}, {key: 'transactionId', label: '第三方退款交易号'}, {key: 'refundAmount', label: '退款金额（元）'}, {key: 'refundTime', label: '退款时间'}];
+const refundStatuses = ref(refundStatusDefaults);
 const statisticFields: {key: keyof OrderStatistics; label: string}[] = [
-  { key: 'totalNum', label: '订单总数' }, { key: 'payNum', label: '已支付' }, { key: 'unPayNum', label: '待支付' },
-  { key: 'refundNum', label: '已退款' }, { key: 'payAmount', label: '已支付金额（原值）' },
-  { key: 'refundAmount', label: '已退款金额（原值）' }, { key: 'unPayAmount', label: '待支付金额（原值）' }
+  { key: 'totalNum', label: '订单总数' }, { key: 'payNum', label: '已支付' }, { key: 'unPayNum', label: '未支付（含取消、关闭）' },
+  { key: 'refundNum', label: '已退款' }, { key: 'payAmount', label: '已支付金额（元）' },
+  { key: 'refundAmount', label: '已退款金额（元）' }
 ];
 const detailFields: {key: keyof OrderVO; label: string}[] = [
   {key: 'orderId', label: '订单ID'}, {key: 'orderNo', label: '订单编号'}, {key: 'productTitle', label: '产品标题'},
   {key: 'productName', label: '产品名称'}, {key: 'businessDeptName', label: '业务归属'},
-  {key: 'totalAmount', label: '总金额（原值）'}, {key: 'payAmount', label: '实付金额（原值）'}, {key: 'discountAmount', label: '优惠金额（原值）'},
-  {key: 'policyNo', label: '保单号'}, {key: 'policyEffectiveDate', label: '保单生效日期'}, {key: 'policyExpiryDate', label: '保单到期日期'},
+  {key: 'totalAmount', label: '总金额（元）'}, {key: 'payAmount', label: '支付金额（元）'}, {key: 'discountAmount', label: '优惠金额（元）'},
+
   {key: 'createTime', label: '创建时间'}, {key: 'payTime', label: '支付时间'}, {key: 'expireTime', label: '过期时间'}, {key: 'remark', label: '备注'}
 ];
 const snapshot = (): OrderQuery => ({ ...query, productId: productId.value, beginCreateTime: dateRange.value?.[0], endCreateTime: dateRange.value?.[1] });
 const message = (e: unknown) => e instanceof Error ? e.message : '请求失败，请重试';
 const load = async () => {
   const current = ++sequence;
-  orders.value = []; total.value = 0; statistics.value = {}; error.value = '';
+  orders.value = []; columns.value = []; total.value = 0; statistics.value = {}; error.value = '';
   if (!productId.value) { loading.value = false; return; }
   loading.value = true;
   const params = snapshot();
   const [list, stats] = await Promise.allSettled([listOrders(params), getOrderStatistics(params.productId)]);
   if (current !== sequence) return;
-  if (list.status === 'fulfilled') { orders.value = list.value.rows; total.value = list.value.total; }
+  if (list.status === 'fulfilled') { orders.value = list.value.rows; columns.value = list.value.columns; total.value = list.value.total; }
   else error.value = message(list.reason);
   if (stats.status === 'fulfilled') statistics.value = stats.value;
   else error.value = [error.value, '统计加载失败'].filter(Boolean).join('；');
@@ -140,14 +147,19 @@ const showDetail = async (row: OrderVO) => {
 const download = async () => {
   if (exporting.value || !productId.value) return;
   exporting.value = true;
-  try { FileSaver.saveAs(await exportOrders(snapshot()), `订单_${productId.value}.xlsx`); }
+  const params = snapshot();
+  try { const file = await exportOrders(params); FileSaver.saveAs(file.blob, `订单_${params.productId}.${file.extension}`); }
   catch (e) { ElMessage.error(message(e)); }
   finally { exporting.value = false; }
 };
 watch(productId, () => { detailSequence++; drawerVisible.value = false; selected.value = undefined; reset(); }, { immediate: true });
 onMounted(async () => {
+  void getDicts('pay_refund_status').then((result) => {
+    const options = (result.data || []).filter((item) => /^[A-Z_]+$/.test(String(item.dictValue))).map((item) => ({ label: item.dictLabel, value: String(item.dictValue) }));
+    refundStatuses.value = [...options, ...refundStatusDefaults.filter((fallback) => !options.some((item) => item.value === fallback.value))];
+  }).catch(() => { /* Keep confirmed SUCCESS fallback; other codes remain unknown. */ });
   await Promise.allSettled((Object.keys(dictionaries) as (keyof typeof dictionaries)[]).map(async (key) => {
-    const names = {payStatus: 'pay_status', orderStatus: 'pay_order_status', policyStatus: 'pay_policy_status'};
+    const names = {payStatus: 'pay_status', orderStatus: 'pay_order_status'};
     const result = await getDicts(names[key]);
     dictionaries[key] = (result.data || []).map((item) => ({ label: item.dictLabel, value: String(item.dictValue) }));
   }));

@@ -43,6 +43,6 @@ export interface OrderStatistics {
   unPayNum?: number;
   payAmount?: number;
   refundAmount?: number;
-  unPayAmount?: number;
+
 }
-export interface OrderPageResult { rows: OrderVO[]; total: number }
+export interface OrderPageResult { rows: OrderVO[]; total: number; columns: import('./contract').OrderField[] }
