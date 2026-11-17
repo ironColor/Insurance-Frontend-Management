@@ -128,8 +128,8 @@ const showQr = async (row: ProductVO) => {
     if (sequence === qrSequence) qrLoading.value = false;
   }
 };
-const showOrders = (_row: ProductVO, type: string) =>
-  router.push({ path: '/order/list', query: { ...(type === 'premium' ? { payStatus: 'paid' } : {}) } });
+const showOrders = (row: ProductVO, _type: string) =>
+  router.push({ path: '/order/list', query: { productId: String(row.productId) } });
 onMounted(async () => {
   await Promise.allSettled([load(), listBusinessDepartments().then((result) => (units.value = result))]);
 });

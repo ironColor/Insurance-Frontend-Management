@@ -1,46 +1,48 @@
-export type OrderPayStatus = 'paid' | 'unpaid' | 'refunded';
-
+export type OrderId = string | number;
+/** Codes are supplied by backend dictionaries, not a frontend enum. */
+export type OrderPayStatus = string;
 export interface OrderVO {
-  orderId: number;
-  productTitle: string;
-  businessUnit: string;
-  productCode: string;
-  productName: string;
-  premium: number;
-  orderNo: string;
-  merchantOrderNo: string;
-  paymentNo: string;
-  studentName: string;
-  studentIdCard: string;
-  grade: string;
-  className: string;
-  parentName: string;
-  parentIdCard: string;
-  phone: string;
-  totalAmount: number;
-  createTime: string;
-  payStatus: OrderPayStatus;
-  payTime: string;
+  orderId: OrderId;
+  productId?: OrderId;
+  orderNo?: string;
+  productTitle?: string;
+  businessDeptName?: string;
+  productCode?: string;
+  productName?: string;
+  totalAmount?: number;
+  payAmount?: number;
+  discountAmount?: number;
+  createTime?: string;
+  orderStatus?: string;
+  payStatus?: string;
+  policyStatus?: string;
+  policyNo?: string;
+  policyEffectiveDate?: string;
+  policyExpiryDate?: string;
+  expireTime?: string;
+  payTime?: string;
+  remark?: string;
+  fieldData?: string;
+  orderData?: string;
+  pay?: Record<string, unknown>;
+  refundList?: Record<string, unknown>[];
 }
-
 export interface OrderQuery {
+  productId: OrderId;
   pageNum: number;
   pageSize: number;
-  keyword: string;
-  payStatus: '' | OrderPayStatus;
-  createDate: string;
-  productCode: string;
+  orderNo?: string;
+  payStatus?: string;
+  beginCreateTime?: string;
+  endCreateTime?: string;
 }
-
 export interface OrderStatistics {
-  total: number;
-  paid: number;
-  unpaid: number;
-  paidPremium: number;
+  totalNum?: number;
+  payNum?: number;
+  refundNum?: number;
+  unPayNum?: number;
+  payAmount?: number;
+  refundAmount?: number;
+  unPayAmount?: number;
 }
-
-export interface OrderPageResult {
-  rows: OrderVO[];
-  total: number;
-  statistics: OrderStatistics;
-}
+export interface OrderPageResult { rows: OrderVO[]; total: number }
