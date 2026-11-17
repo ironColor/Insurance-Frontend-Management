@@ -11,7 +11,7 @@
           <div>{{ item.label }}</div><strong>{{ statistics[item.key] ?? '未知' }}</strong>
         </el-card>
       </section>
-      <el-form inline @submit.prevent="search">
+      <el-form class="order-filters" inline label-width="80px" @submit.prevent="search">
         <el-form-item label="订单编号"><el-input v-model="query.orderNo" clearable placeholder="订单编号" /></el-form-item>
         <el-form-item label="支付状态">
           <el-select v-model="query.payStatus" clearable placeholder="全部" style="width: 160px">
@@ -52,8 +52,8 @@
             <el-descriptions-item v-for="(options, key) in dictionaries" :key="key" :label="statusLabels[key]">{{ statusText(selected[key], options) }}</el-descriptions-item>
           </el-descriptions>
           <h3>投保信息</h3>
-          <el-empty v-if="!orderSections(selected).length" description="暂无有效投保信息" />
-          <section v-for="(section, index) in orderSections(selected)" :key="index">
+          <el-empty v-if="!selectedSections.length" description="暂无有效投保信息" />
+          <section v-for="(section, index) in selectedSections" :key="index">
             <h4>{{ section.name }}</h4>
             <el-descriptions :column="1" border>
               <el-descriptions-item v-for="field in section.fields" :key="field.name" :label="field.label">{{ field.value }}</el-descriptions-item>
@@ -99,6 +99,8 @@ const drawerVisible = ref(false);
 const detailLoading = ref(false);
 const detailError = ref('');
 const selected = ref<OrderVO>();
+const detailFieldLabels = ref<OrderField[]>([]);
+const selectedSections = computed(() => selected.value ? orderSections(selected.value, detailFieldLabels.value) : []);
 let sequence = 0;
 let detailSequence = 0;
 const dictionaries = reactive<Record<'payStatus' | 'orderStatus', {label: string; value: string}[]>>({ payStatus: [], orderStatus: [] });
@@ -139,6 +141,8 @@ const search = () => { query.pageNum = 1; void load(); };
 const reset = () => { query.orderNo = ''; query.payStatus = ''; dateRange.value = []; search(); };
 const showDetail = async (row: OrderVO) => {
   const current = ++detailSequence;
+  // Keep this opening's labels stable even if the background list is refreshed or paginated.
+  detailFieldLabels.value = columns.value.map((field) => ({ ...field }));
   selected.value = undefined; detailError.value = ''; drawerVisible.value = true; detailLoading.value = true;
   try { const result = await getOrder(row.orderId); if (current === detailSequence) selected.value = result; }
   catch (e) { if (current === detailSequence) detailError.value = message(e); }
@@ -166,6 +170,9 @@ onMounted(async () => {
 });
 </script>
 <style scoped>
+.order-filters { display: flex; flex-wrap: wrap; gap: 16px 24px; margin-bottom: 18px; }
+.order-filters :deep(.el-form-item) { margin: 0; max-width: 100%; }
+.order-filters :deep(.el-form-item__label) { flex-shrink: 0; white-space: nowrap; }
 .statistics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0; }
 .statistics strong { font-size: 24px; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f5f7fa; padding: 12px; }

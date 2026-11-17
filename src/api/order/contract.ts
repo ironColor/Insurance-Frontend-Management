@@ -48,9 +48,14 @@ export const displayValue = (value: unknown): string => {
   if (Array.isArray(value)) return value.map((item) => record(item) || Array.isArray(item) ? '—' : displayValue(item)).join('、');
   return '—';
 };
-export const orderSections = (row: Pick<OrderVO, 'fieldData' | 'orderData'>) => {
+export const orderSections = (row: Pick<OrderVO, 'fieldData' | 'orderData'>, listFields: readonly OrderField[] = []) => {
   const data = parse(row.orderData);
   const labels = new Map(fields(row.fieldData).map((field) => [field.name, field.label]));
+  // Reuse displayed list labels; detail metadata fills gaps, never replaces a known list label.
+  for (const field of listFields) {
+    const label = field.label?.trim();
+    if (safeName(field.name) && label && label !== field.name) labels.set(field.name, label);
+  }
   if (!record(data) || !Array.isArray(data.blockConfigList)) return [];
   return [...data.blockConfigList].sort((a, b) => sort(a) - sort(b)).flatMap((block) => {
     if (!record(block) || !record(block.fieldConfig)) return [];

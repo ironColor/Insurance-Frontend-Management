@@ -1,0 +1,2 @@
+# Keep order integration regression tests despite repository-wide *.test.ts ignore.
+!*.test.ts
