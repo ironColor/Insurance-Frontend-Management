@@ -8,12 +8,12 @@ const id = '9223372036854775806';
 const fieldData = JSON.stringify([{ fieldName: 'studentName', fieldLabel: '学生姓名', fieldId: id, visible: '1' }]);
 const row = { orderId: id, fieldData, orderData: JSON.stringify({ blockConfigList: [{ blockName: '被保险人', sort: 1, fieldConfig: { studentName: '模拟学生' } }] }) };
 // A minimal ZIP with central directory (no production data).
-const zip = (names: string[]) => {
+const zip = (names: string[], type = 'application/octet-stream') => {
   const encoder = new TextEncoder();
   const local = new Uint8Array(30); new DataView(local.buffer).setUint32(0, 0x04034b50, true);
   const entries = names.map((name) => { const text = encoder.encode(name); const bytes = new Uint8Array(46 + text.length); const view = new DataView(bytes.buffer); view.setUint32(0, 0x02014b50, true); view.setUint16(28, text.length, true); bytes.set(text, 46); return bytes; });
   const end = new Uint8Array(22); const view = new DataView(end.buffer); view.setUint32(0, 0x06054b50, true); view.setUint16(8, names.length, true); view.setUint16(10, names.length, true); view.setUint32(12, entries.reduce((n, v) => n + v.length, 0), true); view.setUint32(16, 30, true);
-  return new Blob([local, ...entries, end], { type: 'application/octet-stream' });
+  return new Blob([local, ...entries, end], { type });
 };
 beforeEach(() => mock.mockReset());
 describe('order contract', () => {
@@ -88,6 +88,25 @@ describe('order contract', () => {
     mock.mockResolvedValue({ data: {} } as any);
     await getOrderStatistics(id); expect(mock.mock.calls[0][0].params).toEqual({ productId: id });
     await getOrder(id); expect(mock.mock.calls[1][0].url).toBe(`/product/product/${id}/orderInfo`);
+  });
+  const xlsxType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  it.each([xlsxType, `${xlsxType};charset=utf-8`])('accepts an XLSX order export with Content-Type %s', async (type) => {
+    const blob = zip(['[Content_Types].xml', 'xl/workbook.xml'], type);
+    mock.mockResolvedValueOnce(blob as any);
+    const file = await exportOrders({ productId: id, pageNum: 1, pageSize: 10 });
+    expect(file.extension).toBe('xlsx');
+    expect(file.blob).toBe(blob);
+  });
+  it('does not trust an XLSX header over a JSON, HTML or truncated response body', async () => {
+    const type = `${xlsxType};charset=utf-8`;
+    for (const body of ['{"msg":"导出失败"}', '<html></html>', 'PK\u0003\u0004']) {
+      await expect(validateExport(new Blob([body], { type }))).rejects.toThrow();
+    }
+  });
+  it('still rejects text, JSON and XML media types before accepting binary signatures', async () => {
+    for (const type of ['text/plain;charset=utf-8', 'application/json', 'application/problem+json', 'application/xml', 'application/xhtml+xml']) {
+      await expect(validateExport(zip(['[Content_Types].xml', 'xl/workbook.xml'], type))).rejects.toThrow();
+    }
   });
   it('identifies XLSX, ZIP, XLS and both RAR signatures', async () => {
     expect((await validateExport(zip(['[Content_Types].xml', 'xl/workbook.xml']))).extension).toBe('xlsx');

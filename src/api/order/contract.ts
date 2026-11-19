@@ -77,7 +77,9 @@ export interface OrderExport { blob: Blob; extension: 'xlsx' | 'xls' | 'zip' | '
 export const validateExport = async (blob: Blob): Promise<OrderExport> => {
   if (!(blob instanceof Blob) || !blob.size) throw new Error('导出接口返回空文件');
   const head = await blob.slice(0, 512).text();
-  if (/json|text|html|xml/i.test(blob.type) || /^[\s\uFEFF]*[\[{<]/.test(head)) throw new Error('导出接口未返回有效文件');
+  const mediaType = blob.type.split(';', 1)[0].trim().toLowerCase();
+  const isTextResponse = mediaType.startsWith('text/') || /[/+](?:json|xml|html)$/.test(mediaType);
+  if (isTextResponse || /^[\s\uFEFF]*[\[{<]/.test(head)) throw new Error('导出接口未返回有效文件');
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const starts = (signature: number[]) => signature.every((byte, index) => bytes[index] === byte);
   if (bytes.length >= 512 && starts([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) return { blob, extension: 'xls' };
