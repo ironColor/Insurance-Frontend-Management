@@ -58,7 +58,6 @@
       ><div v-loading="qrLoading" class="qr-box">
         <img v-if="qrUrl" class="product-qr" :src="qrUrl" alt="产品投保二维码" />
         <el-empty v-else-if="!qrLoading" description="二维码生成失败，请重试" :image-size="100" />
-        <h3>{{ qrProduct?.productName }}</h3>
         <p>微信扫码进入产品投保页</p>
       </div></el-dialog
     >
@@ -76,7 +75,6 @@ const list = ref<ProductVO[]>([]);
 const total = ref(0);
 const query = reactive<ProductQuery>({ pageNum: 1, pageSize: 10, productCode: '', productName: '', businessUnit: '', status: '0' });
 const qrVisible = ref(false);
-const qrProduct = ref<ProductVO>();
 const qrLoading = ref(false);
 const qrUrl = ref('');
 let qrSequence = 0;
@@ -116,7 +114,6 @@ const clearQr = () => {
 const showQr = async (row: ProductVO) => {
   clearQr();
   const sequence = qrSequence;
-  qrProduct.value = row;
   qrVisible.value = true;
   qrLoading.value = true;
   try {
@@ -128,8 +125,7 @@ const showQr = async (row: ProductVO) => {
     if (sequence === qrSequence) qrLoading.value = false;
   }
 };
-const showOrders = (row: ProductVO, _type: string) =>
-  router.push({ path: '/order/list', query: { productId: String(row.productId) } });
+const showOrders = (row: ProductVO, _type: string) => router.push({ path: '/order/list', query: { productId: String(row.productId) } });
 onMounted(async () => {
   await Promise.allSettled([load(), listBusinessDepartments().then((result) => (units.value = result))]);
 });

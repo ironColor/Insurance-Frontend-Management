@@ -51,12 +51,13 @@ export function register(data: any) {
  * 注销
  */
 export function logout() {
-  if (import.meta.env.VITE_APP_SSE === 'true') {
-    request({
-      url: '/resource/sse/close',
-      method: 'get'
-    });
-  }
+  // PC 端不再使用 SSE，退出登录时无需关闭 SSE 连接。
+  // if (import.meta.env.VITE_APP_SSE === 'true') {
+  //   request({
+  //     url: '/resource/sse/close',
+  //     method: 'get'
+  //   });
+  // }
   return request({
     url: '/auth/logout',
     method: 'post'
